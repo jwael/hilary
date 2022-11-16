@@ -1,0 +1,42 @@
+########### port ##############
+
+server:
+  port: 8080
+
+########### app ##############
+
+spring:
+  application:
+    name: person
+
+  ########### H2 ##############
+
+  h2:
+    console:
+      enabled: true
+      path: /h2
+
+  ########## JDBC:H2 ###############
+
+  datasource:
+    username:
+    password:
+    url: jdbc:h2:mem:memDB;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+
+  ########## Hibernate ###############
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  ###### swagger config ########
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
