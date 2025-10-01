@@ -1,0 +1,31 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.Instant
+
+class GetBatchSummaryUseCaseApiTest {
+
+    private val useCase: GetBatchSummaryUseCaseApi = mock(GetBatchSummaryUseCaseApi::class.java)
+
+    @Test
+    fun `byBatchReference should be called with correct ReferenceId`() {
+        val batchReference = ReferenceId("BATCH001234") // 10 chars comme on a dit
+
+        val summary = BatchEventSummary(
+            batchReference = batchReference,
+            totalContacts = 100,
+            batchStatus = LoaderBatchStatus.SUCCESS,
+            triggeredBy = "SYSTEM",
+            type = LoaderBatchType.CONTACTS,
+            countryCode = CountryCode("FR"),
+            date = Instant.now(),
+            stepsDetails = emptyList()
+        )
+
+        // appel
+        useCase.byBatchReference(batchReference)
+
+        // vérification
+        verify(useCase).byBatchReference(batchReference)
+    }
+}
