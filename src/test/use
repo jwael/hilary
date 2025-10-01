@@ -1,0 +1,33 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.LocalDate
+
+class HandleClCustomerSendingUseCaseApiTest {
+
+    private val useCase: HandleClCustomerSendingUseCaseApi =
+        mock(HandleClCustomerSendingUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct CustomerPayload`() {
+        val crmData = CrmData(
+            mainCountry = "FR",
+            firstName = "John",
+            surname = "Doe",
+            email = "john.doe@example.com"
+        )
+
+        val customerPayload = CustomerPayload(
+            rowNumber = 1,
+            crmData = crmData,
+            clsdata = mapOf("ACQUISITION_ID" to "123"),
+            errorMessage = null
+        )
+
+        val countryCode = "FR"
+
+        useCase.invoke(countryCode, customerPayload)
+
+        verify(useCase).invoke(countryCode, customerPayload)
+    }
+}
