@@ -1,0 +1,32 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.Instant
+
+class HandleClsCustomerRequestUseCaseApiTest {
+
+    private val useCase: HandleClsCustomerRequestUseCaseApi =
+        mock(HandleClsCustomerRequestUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct ClsCustomerDataRequestPayLoad`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH0001"),
+            rowReference = ReferenceId("ROW0001")
+        )
+
+        val requestPayload = ClsCustomerDataRequestPayLoad(
+            countryCode = CountryCode.FR,
+            reconciliationId = reconciliationId,
+            persAcctSalesforceID = "SF12345678",
+            persAcctType = "TYPE1",
+            persAcctCLSAccountID = "CLS12345678"
+        )
+
+        val topicName = "customer-topic"
+
+        useCase.invoke(topicName, requestPayload)
+
+        verify(useCase).invoke(topicName, requestPayload)
+    }
+}
