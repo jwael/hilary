@@ -1,0 +1,68 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.LocalDate
+
+class ImportCustomersUseCaseApiTest {
+
+    private val useCase: ImportCustomersUseCaseApi =
+        mock(ImportCustomersUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct parameters`() {
+        val customerPayloads = listOf(
+            CustomerPayLoad(
+                rowNumber = 1,
+                crmData = CrmData(  // Ici on prend le CrmData "model"
+                    forename = "Alice",
+                    surname = "Dupont",
+                    title = "Ms",
+                    salutation = "Ms",
+                    initials = "A.D.",
+                    companyCode = "COMP002",
+                    prefix = "Dr",
+                    passportLegalFirstName = "Alice",
+                    passportLegalLastName = "Dupont",
+                    LanguageCode = "FR",
+                    dateOfBirth = LocalDate.of(1985, 5, 15),
+                    sex = "F",
+                    mobile = "0123456789",
+                    flagExecutive = false,
+                    startdate = LocalDate.of(2021, 1, 1),
+                    enddate = null,
+                    workPhone = "0123456789",
+                    workMobile = "0123456789",
+                    email = "alice.dupont@example.com",
+                    homeAddress1 = "2 Main St",
+                    homePostTown = "Paris",
+                    homePostcode = "75003",
+                    homeProvince = "Ile-de-France",
+                    homeCountry = "FR"
+                ),
+                clsData = mapOf("ACQUISITION_ID" to "456"),
+                errorMessage = null
+            )
+        )
+
+        val countryCode = CountryCode("FR")
+        val fileName = "customers_model.csv"
+        val triggeredBy = "userModel123"
+        val batchType = LoaderBatchType.CONTACTS
+
+        useCase.invoke(
+            personalAccounts = customerPayloads,
+            countryCode = countryCode,
+            fiLeName = fileName,
+            triggeredBy = triggeredBy,
+            batchType = batchType
+        )
+
+        verify(useCase).invoke(
+            personalAccounts = customerPayloads,
+            countryCode = countryCode,
+            fiLeName = fileName,
+            triggeredBy = triggeredBy,
+            batchType = batchType
+        )
+    }
+}
