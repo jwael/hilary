@@ -1,0 +1,76 @@
+package com.arval.bim.core.application.contact
+
+import com.arval.bim.core.domain.model.RecordStepStatus
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
+
+class CrmContactResponsePayloadTest {
+
+    @Test
+    fun `should return insertedId when status is OK`() {
+        val payload = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.OK,
+            crmErrorMessage = "Erreur CRM",
+            crmInsertedId = "INSERTED_123"
+        )
+
+        assertEquals("INSERTED_123", payload.getMessage())
+    }
+
+    @Test
+    fun `should return errorMessage when status is not OK`() {
+        val payload = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.KO,
+            crmErrorMessage = "Erreur KO",
+            crmInsertedId = "INSERTED_456"
+        )
+
+        assertEquals("Erreur KO", payload.getMessage())
+    }
+
+    @Test
+    fun `should handle null values gracefully`() {
+        val payload = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.WARNING,
+            crmErrorMessage = null,
+            crmInsertedId = null
+        )
+
+        assertNull(payload.getMessage())
+    }
+
+    @Test
+    fun `two identical payloads should be equal`() {
+        val payload1 = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.OK,
+            crmErrorMessage = "Msg",
+            crmInsertedId = "ID_001"
+        )
+
+        val payload2 = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.OK,
+            crmErrorMessage = "Msg",
+            crmInsertedId = "ID_001"
+        )
+
+        assertEquals(payload1, payload2)
+        assertEquals(payload1.hashCode(), payload2.hashCode())
+    }
+
+    @Test
+    fun `different payloads should not be equal`() {
+        val payload1 = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.OK,
+            crmErrorMessage = "Erreur 1",
+            crmInsertedId = "ID_001"
+        )
+
+        val payload2 = CrmContactResponsePayload(
+            crmStatus = RecordStepStatus.KO,
+            crmErrorMessage = "Erreur 2",
+            crmInsertedId = "ID_002"
+        )
+
+        assertNotEquals(payload1, payload2)
+    }
+}
