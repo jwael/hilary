@@ -1,0 +1,45 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when`
+import java.time.Instant
+import java.util.stream.Stream
+
+class ExportBatchFailedCustomersUseCaseApiTest {
+
+    private val useCase: ExportBatchFailedCustomersUseCaseApi = mock()
+
+    @Test
+    fun `execute should return a stream of CrmClsCustomerData`() {
+        val batchReference = ReferenceId("BATCH0001") // longueur = 10
+        val crmData = CrmData(firstName = "John", surname = "Doe")
+
+        val reconciliationId = ReconciliationId(
+            batchReference = batchReference,
+            rowReference = ReferenceId("ROWREF0001") // aussi longueur = 10
+        )
+
+        val crmClsCustomerData = CrmClsCustomerData(
+            id = "1",
+            batchId = batchReference.value,
+            reconciliationId = reconciliationId,
+            rowNumber = 1,
+            rowReference = reconciliationId.rowReference,
+            crmData = crmData,
+            clsData = mapOf("KEY" to "VALUE"),
+            crmInsertedId = null
+        )
+
+        val expectedStream = Stream.of(crmClsCustomerData)
+
+        // Mock du comportement
+        `when`(useCase.execute(batchReference)).thenReturn(expectedStream)
+
+        // Appel de la méthode
+        val result = useCase.execute(batchReference)
+
+        // Vérification
+        verify(useCase).execute(batchReference)
+        assert(result.findFirst().get() == crmClsCustomerData)
+    }
+}
