@@ -1,0 +1,73 @@
+package com.arval.bim.core.application.contact
+
+import com.arval.bim.core.domain.model.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
+import java.time.Instant
+
+class ClsContactDataFeedbackPayLoadTest {
+
+    @Test
+    fun `should create payload and return correct full message`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH12345"),
+            rowReference = ReferenceId("ROW12345")
+        )
+        val payload = ClsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("FR"),
+            reconciliationId = reconciliationId,
+            scope = "CONTACT_SYNC",
+            status = RecordStepStatus.KO,
+            errorMessage = "Email already exists"
+        )
+
+        val fullMessage = payload.fullMessage()
+
+        assertEquals("CONTACT_SYNC - Email already exists", fullMessage)
+    }
+
+    @Test
+    fun `should handle null errorMessage in full message`() {
+        val payload = ClsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("ES"),
+            reconciliationId = ReconciliationId(
+                batchReference = ReferenceId("BATCH99999"),
+                rowReference = ReferenceId("ROW88888")
+            ),
+            scope = "VALIDATION",
+            status = RecordStepStatus.OK,
+            errorMessage = null
+        )
+
+        val fullMessage = payload.fullMessage()
+
+        assertEquals("VALIDATION - null", fullMessage) // le code actuel concatène "null"
+    }
+
+    @Test
+    fun `two identical payloads should be equal`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH55555"),
+            rowReference = ReferenceId("ROW66666")
+        )
+
+        val payload1 = ClsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("IT"),
+            reconciliationId = reconciliationId,
+            scope = "SYNC",
+            status = RecordStepStatus.WARNING,
+            errorMessage = "Minor issue"
+        )
+
+        val payload2 = ClsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("IT"),
+            reconciliationId = reconciliationId,
+            scope = "SYNC",
+            status = RecordStepStatus.WARNING,
+            errorMessage = "Minor issue"
+        )
+
+        assertEquals(payload1, payload2)
+        assertEquals(payload1.hashCode(), payload2.hashCode())
+    }
+}
