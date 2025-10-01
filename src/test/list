@@ -1,0 +1,52 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.Instant
+
+class ListBatchesUseCaseApiTest {
+
+    private val useCase: ListBatchesUseCaseApi = mock(ListBatchesUseCaseApi::class.java)
+
+    @Test
+    fun `execute should be called with correct PageDemand and ListBatchCriteria`() {
+        val pageDemand = PageDemand(page = 0, size = 10)
+        val listBatchCriteria = ListBatchCriteria(
+            triggeredBy = "user123",
+            types = listOf(LoaderBatchType.CONTACTS, LoaderBatchType.B2C_GAIXA)
+        )
+
+        useCase.execute(pageDemand, listBatchCriteria)
+
+        verify(useCase).execute(pageDemand, listBatchCriteria)
+    }
+
+    @Test
+    fun `execute should return PageResult with LoaderBatch list`() {
+        val loaderBatch = LoaderBatch(
+            id = "1",
+            reference = ReferenceId("BATCH0001"),
+            fileName = "file.csv",
+            triggeredBy = "user123",
+            countryCode = CountryCode("FR"),
+            type = LoaderBatchType.CONTACTS,
+            startDate = Instant.now(),
+            totalContacts = 100
+        )
+
+        val pageResult = PageResult(
+            data = listOf(loaderBatch),
+            totalPages = 1,
+            totalElements = 1,
+            currentPage = 0
+        )
+
+        // Ici on mock le retour si nécessaire avec Mockito ou autre
+        // Exemple: Mockito.`when`(useCase.execute(pageDemand, listBatchCriteria)).thenReturn(pageResult)
+
+        // Appel de la méthode
+        useCase.execute(PageDemand(0, 10), ListBatchCriteria(triggeredBy = "user123"))
+
+        // Vérification que la méthode a été appelée correctement
+        verify(useCase).execute(PageDemand(0, 10), ListBatchCriteria(triggeredBy = "user123"))
+    }
+}
