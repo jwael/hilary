@@ -1,0 +1,73 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when`
+import java.time.Instant
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class GetBatchEventsUseCaseApiTest {
+
+    private val useCase: GetBatchEventsUseCaseApi = mock(GetBatchEventsUseCaseApi::class.java)
+
+    @Test
+    fun `execute should return a PageResult with events`() {
+        val pageDemand = PageDemand(page = 0, size = 10)
+        val batchReference = ReferenceId("BATCH0001") // toujours 10 chars
+        val criteria = BatchEventsCriteria(batchReference = batchReference)
+
+        val reconciliationId = ReconciliationId(
+            batchReference = batchReference,
+            rowReference = ReferenceId("ROW0000001")
+        )
+
+        val event = RecordStepEvent(
+            id = "1",
+            batchId = batchReference.value,
+            rowNumber = 1,
+            reconciliationId = reconciliationId,
+            stepName = RecordStepName.BLM,
+            stepStatus = RecordStepStatus.OK,
+            stepMessage = "Processed successfully",
+            timestamp = Instant.now()
+        )
+
+        val expectedPage = PageResult(
+            data = listOf(event),
+            totalPages = 1,
+            totalElements = 1L,
+            currentPage = 0
+        )
+
+        `when`(useCase.execute(pageDemand, criteria)).thenReturn(expectedPage)
+
+        val result = useCase.execute(pageDemand, criteria)
+
+        verify(useCase).execute(pageDemand, criteria)
+        assertEquals(1, result.data.size)
+        assertEquals("BATCH0001", result.data[0].batchId)
+        assertEquals(RecordStepName.BLM, result.data[0].stepName)
+    }
+
+    @Test
+    fun `execute should return empty PageResult when no events found`() {
+        val pageDemand = PageDemand(page = 0, size = 10)
+        val batchReference = ReferenceId("BATCH0001")
+        val criteria = BatchEventsCriteria(batchReference = batchReference)
+
+        val expectedPage = PageResult<RecordStepEvent>(
+            data = emptyList(),
+            totalPages = 0,
+            totalElements = 0L,
+            currentPage = 0
+        )
+
+        `when`(useCase.execute(pageDemand, criteria)).thenReturn(expectedPage)
+
+        val result = useCase.execute(pageDemand, criteria)
+
+        verify(useCase).execute(pageDemand, criteria)
+        assertTrue(result.data.isEmpty())
+        assertEquals(0L, result.totalElements)
+    }
+}
