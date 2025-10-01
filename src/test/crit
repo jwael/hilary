@@ -1,0 +1,63 @@
+package com.arval.blm.core.domain.model.contact.events
+
+import com.arval.blm.core.domain.model.RecordStepStatus
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+
+class ExportEventsCriteriaTest {
+
+    @Test
+    fun `should create with provided statuses`() {
+        val criteria = ExportEventsCriteria(
+            statuses = listOf(RecordStepStatus.KO, RecordStepStatus.WARNING)
+        )
+
+        assertEquals(2, criteria.statuses.size)
+        assertTrue(criteria.statuses.contains(RecordStepStatus.KO))
+        assertTrue(criteria.statuses.contains(RecordStepStatus.WARNING))
+    }
+
+    @Test
+    fun `should allow empty status list`() {
+        val criteria = ExportEventsCriteria(statuses = emptyList())
+
+        assertTrue(criteria.statuses.isEmpty())
+    }
+
+    @Test
+    fun `two identical criteria should be equal`() {
+        val c1 = ExportEventsCriteria(listOf(RecordStepStatus.OK))
+        val c2 = ExportEventsCriteria(listOf(RecordStepStatus.OK))
+
+        assertEquals(c1, c2)
+        assertEquals(c1.hashCode(), c2.hashCode())
+    }
+
+    @Test
+    fun `different criteria should not be equal`() {
+        val c1 = ExportEventsCriteria(listOf(RecordStepStatus.OK))
+        val c2 = ExportEventsCriteria(listOf(RecordStepStatus.KO))
+
+        assertNotEquals(c1, c2)
+    }
+
+    @Test
+    fun `should support copy with modifications`() {
+        val original = ExportEventsCriteria(listOf(RecordStepStatus.OK))
+        val modified = original.copy(statuses = listOf(RecordStepStatus.WARNING))
+
+        assertNotEquals(original, modified)
+        assertEquals(listOf(RecordStepStatus.WARNING), modified.statuses)
+    }
+
+    @Test
+    fun `should support destructuring`() {
+        val criteria = ExportEventsCriteria(listOf(RecordStepStatus.OK, RecordStepStatus.KO))
+
+        val (statuses) = criteria
+
+        assertEquals(2, statuses.size)
+        assertTrue(statuses.contains(RecordStepStatus.OK))
+        assertTrue(statuses.contains(RecordStepStatus.KO))
+    }
+}
