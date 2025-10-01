@@ -1,0 +1,62 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.`when`
+import java.time.Instant
+import java.util.stream.Stream
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ExportEventsUseCaseApiTest {
+
+    private val exportEventsUseCase: ExportEventsUseCaseApi = mock(ExportEventsUseCaseApi::class.java)
+
+    @Test
+    fun `execute should return a non-empty stream of RecordStepEvent`() {
+        val batchReference = ReferenceId("BATCH0001") // 10 caractères
+        val criteria = ExportEventsCriteria() // à ajuster selon ta vraie classe
+
+        val reconciliationId = ReconciliationId(
+            batchReference = batchReference,
+            rowReference = ReferenceId("ROW0000001") // 10 caractères aussi
+        )
+
+        val event = RecordStepEvent(
+            id = "1",
+            batchId = batchReference.value,
+            rowNumber = 1,
+            reconciliationId = reconciliationId,
+            stepName = RecordStepName.BLM,
+            stepStatus = RecordStepStatus.OK,
+            stepMessage = "Processed successfully",
+            timestamp = Instant.now()
+        )
+
+        val expectedStream = Stream.of(event)
+
+        `when`(exportEventsUseCase.execute(batchReference, criteria)).thenReturn(expectedStream)
+
+        val result = exportEventsUseCase.execute(batchReference, criteria).toList()
+
+        verify(exportEventsUseCase).execute(batchReference, criteria)
+        assertEquals(1, result.size)
+        assertEquals("BATCH0001", result[0].batchId)
+        assertEquals(RecordStepName.BLM, result[0].stepName)
+    }
+
+    @Test
+    fun `execute should return empty stream when no events found`() {
+        val batchReference = ReferenceId("BATCH0002")
+        val criteria = ExportEventsCriteria()
+
+        `when`(exportEventsUseCase.execute(batchReference, criteria)).thenReturn(Stream.empty())
+
+        val result = exportEventsUseCase.execute(batchReference, criteria).toList()
+
+        verify(exportEventsUseCase).execute(batchReference, criteria)
+        assertTrue(result.isEmpty())
+    }
+
+    // extension utilitaire pour consommer Stream facilement
+    private fun <T> Stream<T>.toList(): List<T> = this.use { it.toList() }
+}
