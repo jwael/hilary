@@ -1,0 +1,64 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.LocalDate
+
+class ImportContactUseCaseApiTest {
+
+    private val useCase: ImportContactUseCaseApi =
+        mock(ImportContactUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct parameters using model CrmData`() {
+        val contacts = listOf(
+            ContactPayLoad(
+                rowNumber = 1,
+                crmData = CrmData(
+                    forename = "John",
+                    surname = "Doe",
+                    title = "Mr",
+                    salutation = "Mr",
+                    initials = "J.D.",
+                    companyCode = "COMP001",
+                    prefix = "Dr",
+                    passportLegalFirstName = "John",
+                    passportLegalLastName = "Doe",
+                    LanguageCode = "EN",
+                    dateOfBirth = LocalDate.of(1990, 1, 1),
+                    sex = "M",
+                    mobile = "0123456789",
+                    flagExecutive = false,
+                    startdate = LocalDate.of(2020, 1, 1),
+                    enddate = null,
+                    workPhone = "0123456789",
+                    workMobile = "0123456789",
+                    email = "john.doe@example.com",
+                    homeAddress1 = "1 Main St",
+                    homeAddress2 = null,
+                    homeAddress3 = null,
+                    homePostTown = "Paris",
+                    homePostcode = "75001",
+                    homeProvince = "Ile-de-France",
+                    homeCountry = "FR",
+                    homeHouseNumber = "1",
+                    personalIdentif1cationNumber = "ABC123456",
+                    workAddress1 = "10 Work St",
+                    workAddress2 = null,
+                    workAddress3 = null,
+                    workPostTown = "Paris",
+                    workPostcode = "75002",
+                    workProvince = "Ile-de-France"
+                ),
+                clsData = mapOf("ACQUISITION_ID" to "123"),
+                errorMessage = null
+            )
+        )
+        val countryCode = CountryCode("FR")
+        val fileName = "contacts_model.csv"
+        val userId = "userModel123"
+
+        useCase.invoke(contacts, countryCode, fileName, userId)
+
+        verify(useCase).invoke(contacts, countryCode, fileName, userId)
+    }
+}
