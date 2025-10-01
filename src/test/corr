@@ -1,0 +1,30 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import java.time.Instant
+
+class HandLeClContactFeedbackUseCaseApiTest {
+
+    private val useCase: HandLeClContactFeedbackUseCaseApi =
+        mock(HandLeClContactFeedbackUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct ClsContactDataFeedbackPayLoad`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH0001"),
+            rowReference = ReferenceId("ROW0001")
+        )
+
+        val feedbackPayload = ClsContactDataFeedbackPayLoad(
+            countryCode = CountryCode.FR,
+            reconciliationId = reconciliationId,
+            scope = "CONTACT_SCOPE",
+            status = RecordStepStatus.OK,
+            errorMessage = "Optional error message"
+        )
+
+        useCase.invoke(feedbackPayload)
+
+        verify(useCase).invoke(feedbackPayload)
+    }
+}
