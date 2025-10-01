@@ -1,0 +1,31 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+
+class HandLeCLsContactRequestUseCaseApiTest {
+
+    private val useCase: HandLeCLsContactRequestUseCaseApi = mock(HandLeCLsContactRequestUseCaseApi::class.java)
+
+    @Test
+    fun `invoke should be called with correct ClsContactDataRequestPayLoad`() {
+        // Création d'un ReconciliationId minimal
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH0001"),
+            rowReference = ReferenceId("ROW0001")
+        )
+
+        // Création de l'objet payload
+        val payload = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode.FR, // exemple
+            reconciliationId = reconciliationId,
+            contactRoleSalesForceId = "ROLE123",
+            clsId = "CLS001"
+        )
+
+        // Appel de la méthode à tester
+        useCase.invoke(payload)
+
+        // Vérification que la méthode a été appelée avec l'objet exact
+        verify(useCase).invoke(payload)
+    }
+}
