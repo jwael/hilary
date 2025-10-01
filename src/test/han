@@ -9,18 +9,17 @@ class HandleClContactFeedbackUseCaseApiTest {
 
     @Test
     fun `invoke should be called with correct ClsContactDataFeedbackPayLoad`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH001234"),
+            rowReference = ReferenceId("ROW0012345")
+        )
+
         val feedbackPayload = ClsContactDataFeedbackPayLoad(
-            id = "FEEDBACK001",
-            batchId = "BATCH001234", // 10 caractères
-            reconciliationId = ReconciliationId(
-                batchReference = ReferenceId("BATCH001234"),
-                rowReference = ReferenceId("ROW0012345")
-            ),
-            rowNumber = 1,
-            rowReference = ReferenceId("ROW0012345"),
-            status = "SUCCESS",
-            message = "Processed successfully",
-            timestamp = Instant.now()
+            countryCode = CountryCode.FR, // exemple
+            reconciliationid = reconciliationId,
+            scope = "CONTACT_IMPORT",
+            status = RecordStepStatus.OK,
+            errorMessage = null
         )
 
         // appel de la fonction
