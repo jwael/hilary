@@ -1,0 +1,86 @@
+package com.arval.bim.core.domain.model
+
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+
+class BatchEventsCriteriaTest {
+
+    private val referenceId = ReferenceId("REF1234567")
+    private val reconciliationId = ReconciliationId(
+        batchReference = ReferenceId("BATCH00001"),
+        rowReference = ReferenceId("ROW0000001")
+    )
+
+    @Test
+    fun `should create with only required batchReference`() {
+        val criteria = BatchEventsCriteria(batchReference = referenceId)
+
+        assertEquals(referenceId, criteria.batchReference)
+        assertNull(criteria.status)
+        assertNull(criteria.steps)
+        assertNull(criteria.reconciliationId)
+        assertNull(criteria.messageContains)
+    }
+
+    @Test
+    fun `should create with all fields`() {
+        val criteria = BatchEventsCriteria(
+            batchReference = referenceId,
+            status = listOf(RecordStepStatus.OK, RecordStepStatus.WARNING),
+            steps = listOf(RecordStepName.BLM, RecordStepName.CLS_FEEDBACK),
+            reconciliationId = reconciliationId,
+            messageContains = "error"
+        )
+
+        assertEquals(referenceId, criteria.batchReference)
+        assertEquals(2, criteria.status?.size)
+        assertEquals(2, criteria.steps?.size)
+        assertEquals(reconciliationId, criteria.reconciliationId)
+        assertEquals("error", criteria.messageContains)
+    }
+
+    @Test
+    fun `two identical criteria should be equal`() {
+        val criteria1 = BatchEventsCriteria(batchReference = referenceId)
+        val criteria2 = BatchEventsCriteria(batchReference = referenceId)
+
+        assertEquals(criteria1, criteria2)
+        assertEquals(criteria1.hashCode(), criteria2.hashCode())
+    }
+
+    @Test
+    fun `different criteria should not be equal`() {
+        val criteria1 = BatchEventsCriteria(batchReference = ReferenceId("REF1111111"))
+        val criteria2 = BatchEventsCriteria(batchReference = ReferenceId("REF2222222"))
+
+        assertNotEquals(criteria1, criteria2)
+    }
+
+    @Test
+    fun `should support copy with modifications`() {
+        val original = BatchEventsCriteria(batchReference = referenceId)
+        val modified = original.copy(messageContains = "warning")
+
+        assertNotEquals(original, modified)
+        assertEquals("warning", modified.messageContains)
+    }
+
+    @Test
+    fun `should support destructuring`() {
+        val criteria = BatchEventsCriteria(
+            batchReference = referenceId,
+            status = listOf(RecordStepStatus.KO),
+            steps = listOf(RecordStepName.SF_CREATE),
+            reconciliationId = reconciliationId,
+            messageContains = "failure"
+        )
+
+        val (batchRef, status, steps, recId, message) = criteria
+
+        assertEquals(referenceId, batchRef)
+        assertEquals(listOf(RecordStepStatus.KO), status)
+        assertEquals(listOf(RecordStepName.SF_CREATE), steps)
+        assertEquals(reconciliationId, recId)
+        assertEquals("failure", message)
+    }
+}
