@@ -1,0 +1,33 @@
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+
+class ReferenceIdFactoryTest {
+
+    private val factory = ReferenceIdFactory()
+
+    @Test
+    fun `generate should return a ReferenceId of length 10`() {
+        val referenceId = factory.generate()
+
+        assertNotNull(referenceId)
+        assertEquals(10, referenceId.value.length, "ReferenceId length should be 10")
+    }
+
+    @Test
+    fun `generate should return different values on multiple calls`() {
+        val ref1 = factory.generate()
+        val ref2 = factory.generate()
+
+        assertNotEquals(ref1.value, ref2.value, "Two generated ReferenceIds should not be equal")
+    }
+
+    @Test
+    fun `generated value should contain only valid characters`() {
+        val allowedChars = "-0123456789abcdef9hiiklmnopgrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        val referenceId = factory.generate()
+
+        referenceId.value.forEach { char ->
+            assertTrue(char in allowedChars, "Character '$char' is not allowed")
+        }
+    }
+}
