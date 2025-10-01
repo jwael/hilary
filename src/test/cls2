@@ -1,0 +1,82 @@
+package com.arval.bim.core.application.contact
+
+import com.arval.bim.core.domain.model.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.*
+
+class ClsContactDataRequestPayLoadTest {
+
+    @Test
+    fun `should create valid ClsContactDataRequestPayLoad`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH12345"),
+            rowReference = ReferenceId("ROW54321")
+        )
+
+        val payload = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode("FR"),
+            reconciliationId = reconciliationId,
+            contactRoleSalesForceId = "ROLE_001",
+            clsId = "CLS_123"
+        )
+
+        assertEquals("FR", payload.countryCode.value)
+        assertEquals("BATCH12345", payload.reconciliationId.batchReference.value)
+        assertEquals("ROW54321", payload.reconciliationId.rowReference.value)
+        assertEquals("ROLE_001", payload.contactRoleSalesForceId)
+        assertEquals("CLS_123", payload.clsId)
+    }
+
+    @Test
+    fun `two identical payloads should be equal`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH99999"),
+            rowReference = ReferenceId("ROW88888")
+        )
+
+        val payload1 = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode("ES"),
+            reconciliationId = reconciliationId,
+            contactRoleSalesForceId = "ROLE_ABC",
+            clsId = "CLS_999"
+        )
+
+        val payload2 = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode("ES"),
+            reconciliationId = reconciliationId,
+            contactRoleSalesForceId = "ROLE_ABC",
+            clsId = "CLS_999"
+        )
+
+        assertEquals(payload1, payload2)
+        assertEquals(payload1.hashCode(), payload2.hashCode())
+    }
+
+    @Test
+    fun `different payloads should not be equal`() {
+        val reconciliationId1 = ReconciliationId(
+            batchReference = ReferenceId("BATCH11111"),
+            rowReference = ReferenceId("ROW22222")
+        )
+        val reconciliationId2 = ReconciliationId(
+            batchReference = ReferenceId("BATCH33333"),
+            rowReference = ReferenceId("ROW44444")
+        )
+
+        val payload1 = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode("IT"),
+            reconciliationId = reconciliationId1,
+            contactRoleSalesForceId = "ROLE_X",
+            clsId = "CLS_X"
+        )
+
+        val payload2 = ClsContactDataRequestPayLoad(
+            countryCode = CountryCode("IT"),
+            reconciliationId = reconciliationId2,
+            contactRoleSalesForceId = "ROLE_Y",
+            clsId = "CLS_Y"
+        )
+
+        assertNotEquals(payload1, payload2)
+    }
+}
