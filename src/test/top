@@ -1,0 +1,84 @@
+package com.arval.bim.core.domain.model.company
+
+import kotlin.test.Test
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+class CompanyTopLevelCodeResultTest {
+
+    @Test
+    fun `successResult should create result with companyCode and be successful`() {
+        val result = CompanyTopLevelCodeResult.successResult("COMP123")
+
+        assertEquals("COMP123", result.companyCode)
+        assertNull(result.message)
+        assertNull(result.errorCode)
+        assertTrue(result.isPresent())
+        assertTrue(result.isSuccessful())
+        assertFalse(result.isCompanyCodeLowerLevel())
+        assertFalse(result.isTopLevelNotFound())
+    }
+
+    @Test
+    fun `errorResult with FETCH_ERROR should not be successful`() {
+        val result = CompanyTopLevelCodeResult.errorResult(
+            message = "Fetch failed",
+            errorCode = CompanyTopLevelErrorCode.FETCH_ERROR
+        )
+
+        assertNull(result.companyCode)
+        assertEquals("Fetch failed", result.message)
+        assertEquals(CompanyTopLevelErrorCode.FETCH_ERROR, result.errorCode)
+        assertFalse(result.isPresent())
+        assertFalse(result.isSuccessful())
+        assertFalse(result.isCompanyCodeLowerLevel())
+        assertFalse(result.isTopLevelNotFound())
+    }
+
+    @Test
+    fun `errorResult with TOPLEVEL_NOT_FOUND and no companyCode should be successful`() {
+        val result = CompanyTopLevelCodeResult.errorResult(
+            message = "Top level not found",
+            errorCode = CompanyTopLevelErrorCode.TOPLEVEL_NOT_FOUND
+        )
+
+        assertNull(result.companyCode)
+        assertEquals("Top level not found", result.message)
+        assertEquals(CompanyTopLevelErrorCode.TOPLEVEL_NOT_FOUND, result.errorCode)
+        assertFalse(result.isPresent())
+        assertTrue(result.isSuccessful()) // because TOPLEVEL_NOT_FOUND counts as success
+        assertFalse(result.isCompanyCodeLowerLevel())
+        assertTrue(result.isTopLevelNotFound())
+    }
+
+    @Test
+    fun `errorResult with TOPLEVEL_NOT_FOUND and companyCode present should be considered lower level`() {
+        val result = CompanyTopLevelCodeResult(
+            companyCode = "LOWER123",
+            message = "Top level not found but code present",
+            errorCode = CompanyTopLevelErrorCode.TOPLEVEL_NOT_FOUND
+        )
+
+        assertEquals("LOWER123", result.companyCode)
+        assertTrue(result.isPresent())
+        assertTrue(result.isSuccessful())
+        assertTrue(result.isCompanyCodeLowerLevel())
+        assertTrue(result.isTopLevelNotFound())
+    }
+
+    @Test
+    fun `errorResult with ILLEGAL_ARGUMENTS_ERROR should fail`() {
+        val result = CompanyTopLevelCodeResult.errorResult(
+            message = "Illegal arguments",
+            errorCode = CompanyTopLevelErrorCode.ILLEGAL_ARGUMENTS_ERROR
+        )
+
+        assertNull(result.companyCode)
+        assertEquals("Illegal arguments", result.message)
+        assertEquals(CompanyTopLevelErrorCode.ILLEGAL_ARGUMENTS_ERROR, result.errorCode)
+        assertFalse(result.isPresent())
+        assertFalse(result.isSuccessful())
+    }
+}
