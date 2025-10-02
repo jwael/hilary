@@ -1,0 +1,57 @@
+package com.arval.blm.infrastructure.driving.rest.batch
+
+import com.arval.blm.infrastructure.driving.rest.batch.dto.BatchReferenceDto
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.http.MediaType
+import org.springframework.mock.web.MockMultipartFile
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
+import org.mockito.Mockito.`when`
+import com.arval.blm.core.application.contact.ImportCustomersUseCaseApi
+import com.arval.blm.core.domain.model.Referenceld
+
+@WebMvcTest(CaixaManualCustomerImportApi::class)
+class CaixaManualCustomerImportApiTest {
+
+    @Autowired
+    private lateinit var mockMvc: MockMvc
+
+    @MockBean
+    private lateinit var importCustomersUseCaseApi: ImportCustomersUseCaseApi
+
+    @Test
+    fun `importFile should return batch reference when file is valid`() {
+        val mockFile = MockMultipartFile(
+            "file",
+            "test-file.csv",
+            "text/csv",
+            "id,firstName,lastName\n1,John,Doe".toByteArray()
+        )
+
+        val batchRef = "BATCH001"
+        `when`(importCustomersUseCaseApi.invoke(
+            anyList(),
+            any(),
+            anyOrNull(),
+            anyString(),
+            anyString(),
+            anyList()
+        )).thenReturn(Referenceld(batchRef))
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.multipart("/caixa/manual/import")
+                .file(mockFile)
+                .param("customCountry", "FR")
+                .header("X-User-Country", "FR")
+                .header("X-User-Uid", "user123")
+                .header("X-User-Roles", "B2C_CAIXA_FILE_IMPORT")
+        )
+            .andExpect(status().isCreated)
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.batchReference").value(batchRef))
+    }
+}
