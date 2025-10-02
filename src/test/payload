@@ -1,0 +1,101 @@
+package com.arval.bim.core.domain.model.contact
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
+import java.time.LocalDate
+
+class ContactPayloadTest {
+
+    @Test
+    fun `should create ContactPayload with minimal required fields`() {
+        val crmData = CrmData(forename = "John", surname = "Doe")
+        val contact = ContactPayLoad(
+            rowNumber = 1,
+            crData = crmData,
+            clsData = mapOf("clsKey" to "clsValue"),
+            isProspect = true
+        )
+
+        assertEquals(1, contact.rowNumber)
+        assertEquals("John", contact.crData.forename)
+        assertEquals("Doe", contact.crData.surname)
+        assertEquals("clsValue", contact.clsData["clsKey"])
+        assertEquals(true, contact.isProspect)
+        assertNull(contact.errorMessage)
+    }
+
+    @Test
+    fun `should allow setting errorMessage`() {
+        val crmData = CrmData(forename = "Jane")
+        val contact = ContactPayLoad(
+            rowNumber = 2,
+            crData = crmData,
+            clsData = emptyMap(),
+            isProspect = false,
+            errorMessage = "Invalid email"
+        )
+
+        assertEquals("Invalid email", contact.errorMessage)
+        assertEquals("Jane", contact.crData.forename)
+    }
+
+    @Test
+    fun `crmData default values should be null`() {
+        val crmData = CrmData()
+
+        assertNull(crmData.forename)
+        assertNull(crmData.surname)
+        assertNull(crmData.email)
+        assertNull(crmData.dateOfBirth)
+    }
+
+    @Test
+    fun `crmData should accept full data`() {
+        val date = LocalDate.of(1990, 5, 20)
+        val crmData = CrmData(
+            forename = "Alice",
+            surname = "Smith",
+            email = "alice.smith@test.com",
+            dateOfBirth = date,
+            mobile = "+123456789",
+            companycode = "COMP01",
+            jobTitle = "Manager",
+            mainContact = true
+        )
+
+        assertEquals("Alice", crmData.forename)
+        assertEquals("Smith", crmData.surname)
+        assertEquals("alice.smith@test.com", crmData.email)
+        assertEquals(date, crmData.dateOfBirth)
+        assertEquals("+123456789", crmData.mobile)
+        assertEquals("COMP01", crmData.companycode)
+        assertEquals("Manager", crmData.jobTitle)
+        assertEquals(true, crmData.mainContact)
+    }
+
+    @Test
+    fun `equals should differentiate different ContactPayload`() {
+        val crmData1 = CrmData(forename = "Bob")
+        val crmData2 = CrmData(forename = "Charlie")
+
+        val contact1 = ContactPayLoad(1, crmData1, emptyMap(), true)
+        val contact2 = ContactPayLoad(1, crmData2, emptyMap(), true)
+
+        assertNotEquals(contact1, contact2)
+        assertNotEquals(contact1.hashCode(), contact2.hashCode())
+    }
+
+    @Test
+    fun `toString should contain class name and properties`() {
+        val crmData = CrmData(forename = "Eva")
+        val contact = ContactPayLoad(3, crmData, mapOf("role" to "admin"), false)
+
+        val stringRep = contact.toString()
+
+        assertTrue(stringRep.contains("ContactPayLoad"))
+        assertTrue(stringRep.contains("Eva"))
+        assertTrue(stringRep.contains("admin"))
+    }
+}
