@@ -1,0 +1,43 @@
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class CustomerPolicyRequestTest {
+
+    @Test
+    fun `toCustomerPolicyRequest should map fields correctly`() {
+        // Préparer les données d'entrée
+        val payload = CustomerPolicyRequestPayLoad(
+            countrySource = CountryCode("FR"), // ISO valide
+            companyCode = "COMP123"
+        )
+
+        // Appel de la fonction d'extension
+        val result = payload.toCustomerPolicyRequest()
+
+        // Vérifications
+        assertEquals(payload.countrySource, result.request.countrySource, "Le CountryCode doit être correctement mappé")
+        assertEquals(payload.companyCode, result.request.companyCode, "Le companyCode doit être correctement mappé")
+    }
+
+    @Test
+    fun `toCustomerPolicyRequest should throw exception for invalid CountryCode`() {
+        // Préparer un CountryCode invalide
+        val invalidCode = "XX"
+
+        val exception = assertFailsWith<IllegalArgumentException> {
+            val payload = CustomerPolicyRequestPayLoad(
+                countrySource = CountryCode(invalidCode),
+                companyCode = "COMP123"
+            )
+            payload.toCustomerPolicyRequest()
+        }
+
+        // Vérifier le message d'exception exact
+        assertEquals(
+            "\"$invalidCode\" is not a valid ISO 3166 country code. Please check your input",
+            exception.message,
+            "Le message d'exception doit correspondre à la validation du CountryCode"
+        )
+    }
+}
