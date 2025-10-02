@@ -1,0 +1,45 @@
+package com.arval.blm.core.domain.model.customer
+
+import kotlin.test.*
+import com.arval.blm.core.domain.model.CountryCode
+
+class CustomerPolicyRequestPayLoadTest {
+
+    @Test
+    fun `should create payload with valid values`() {
+        val payload = CustomerPolicyRequestPayLoad(
+            countrySource = CountryCode("FR"),
+            companyCode = "COMP123"
+        )
+
+        assertEquals("FR", payload.countrySource.value)
+        assertEquals("COMP123", payload.companyCode)
+    }
+
+    @Test
+    fun `should support equality`() {
+        val p1 = CustomerPolicyRequestPayLoad(CountryCode("FR"), "COMP123")
+        val p2 = CustomerPolicyRequestPayLoad(CountryCode("FR"), "COMP123")
+
+        assertEquals(p1, p2)
+        assertEquals(p1.hashCode(), p2.hashCode())
+    }
+
+    @Test
+    fun `should support copy`() {
+        val original = CustomerPolicyRequestPayLoad(CountryCode("FR"), "COMP123")
+        val copy = original.copy(companyCode = "COMP999")
+
+        assertEquals("COMP999", copy.companyCode)
+        assertEquals("COMP123", original.companyCode) // original inchangé
+    }
+
+    @Test
+    fun `toString should contain field values`() {
+        val payload = CustomerPolicyRequestPayLoad(CountryCode("FR"), "COMP123")
+        val str = payload.toString()
+
+        assertTrue(str.contains("FR"))
+        assertTrue(str.contains("COMP123"))
+    }
+}
