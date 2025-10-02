@@ -1,0 +1,48 @@
+import com.arval.blm.infrastructure.driving.kafka.contact.ClsRequestContactKafkaMessage
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ClsRequestContactKafkaMessageTest {
+
+    @Test
+    fun `should correctly assign properties`() {
+        val msg = ClsRequestContactKafkaMessage(
+            clsID = "CLS123",
+            contactRoleSalesforceID = "ROLE456"
+        )
+
+        assertEquals("CLS123", msg.clsID)
+        assertEquals("ROLE456", msg.contactRoleSalesforceID)
+    }
+
+    @Test
+    fun `should support copy`() {
+        val msg = ClsRequestContactKafkaMessage(
+            clsID = "CLS123",
+            contactRoleSalesforceID = "ROLE456"
+        )
+        val copy = msg.copy(contactRoleSalesforceID = "ROLE789")
+
+        assertEquals("CLS123", copy.clsID)
+        assertEquals("ROLE789", copy.contactRoleSalesforceID)
+    }
+
+    @Test
+    fun `should support equals and hashCode`() {
+        val msg1 = ClsRequestContactKafkaMessage("CLS123", "ROLE456")
+        val msg2 = ClsRequestContactKafkaMessage("CLS123", "ROLE456")
+
+        assertTrue(msg1 == msg2)
+        assertEquals(msg1.hashCode(), msg2.hashCode())
+    }
+
+    @Test
+    fun `toString should contain all fields`() {
+        val msg = ClsRequestContactKafkaMessage("CLS123", "ROLE456")
+        val str = msg.toString()
+
+        assertTrue(str.contains("CLS123"))
+        assertTrue(str.contains("ROLE456"))
+    }
+}
