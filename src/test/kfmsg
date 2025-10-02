@@ -1,0 +1,58 @@
+import com.arval.blm.infrastructure.driving.kafka.contact.ClsRequestCustomerKafkaMessage
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ClsRequestCustomerKafkaMessageTest {
+
+    @Test
+    fun `should correctly assign properties`() {
+        val msg = ClsRequestCustomerKafkaMessage(
+            persAcctSalesforceID = "SF123",
+            persAcctType = "TYPE_A",
+            persAccType = "TYPE_B",
+            persAcctCLSAccountID = "CLS456"
+        )
+
+        assertEquals("SF123", msg.persAcctSalesforceID)
+        assertEquals("TYPE_A", msg.persAcctType)
+        assertEquals("TYPE_B", msg.persAccType)
+        assertEquals("CLS456", msg.persAcctCLSAccountID)
+    }
+
+    @Test
+    fun `should support copy`() {
+        val msg = ClsRequestCustomerKafkaMessage(
+            persAcctSalesforceID = "SF123",
+            persAcctType = "TYPE_A",
+            persAccType = "TYPE_B",
+            persAcctCLSAccountID = "CLS456"
+        )
+        val copy = msg.copy(persAcctType = "UPDATED")
+
+        assertEquals("UPDATED", copy.persAcctType)
+        assertEquals("SF123", copy.persAcctSalesforceID)
+        assertEquals("TYPE_B", copy.persAccType)
+        assertEquals("CLS456", copy.persAcctCLSAccountID)
+    }
+
+    @Test
+    fun `should support equals and hashCode`() {
+        val msg1 = ClsRequestCustomerKafkaMessage("SF123", "TYPE_A", "TYPE_B", "CLS456")
+        val msg2 = ClsRequestCustomerKafkaMessage("SF123", "TYPE_A", "TYPE_B", "CLS456")
+
+        assertTrue(msg1 == msg2)
+        assertEquals(msg1.hashCode(), msg2.hashCode())
+    }
+
+    @Test
+    fun `toString should contain all fields`() {
+        val msg = ClsRequestCustomerKafkaMessage("SF123", "TYPE_A", "TYPE_B", "CLS456")
+        val str = msg.toString()
+
+        assertTrue(str.contains("SF123"))
+        assertTrue(str.contains("TYPE_A"))
+        assertTrue(str.contains("TYPE_B"))
+        assertTrue(str.contains("CLS456"))
+    }
+}
