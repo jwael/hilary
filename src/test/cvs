@@ -1,0 +1,33 @@
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class CsvErrorRegistryTest {
+
+    @Test
+    fun `addError should add a message to the registry`() {
+        // Réinitialiser pour éviter les effets de bord
+        CsvErrorRegistry.getAndClear()
+
+        CsvErrorRegistry.addError("Error 1")
+        CsvErrorRegistry.addError("Error 2")
+
+        val errors = CsvErrorRegistry.getAndClear()
+        assertEquals(2, errors.size)
+        assertTrue(errors.contains("Error 1"))
+        assertTrue(errors.contains("Error 2"))
+
+        // Vérifier que la liste est vidée après getAndClear
+        val afterClear = CsvErrorRegistry.getAndClear()
+        assertTrue(afterClear.isEmpty())
+    }
+
+    @Test
+    fun `getAndClear should return empty list if no errors`() {
+        // Réinitialiser
+        CsvErrorRegistry.getAndClear()
+
+        val errors = CsvErrorRegistry.getAndClear()
+        assertTrue(errors.isEmpty())
+    }
+}
