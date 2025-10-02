@@ -1,0 +1,30 @@
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+
+class RestErrorTest {
+
+    @Test
+    fun `RestError object should create instance correctly`() {
+        val error = RestError(
+            title = "Custom Error",
+            status = "999",
+            message = "Something went wrong"
+        )
+
+        assertEquals("Custom Error", error.title)
+        assertEquals("999", error.status)
+        assertEquals("Something went wrong", error.message)
+    }
+
+    @Test
+    fun `RestError companion constants should not be null`() {
+        assertNotNull(RestError.INTERNAL_SERVER_ERROR)
+        assertNotNull(RestError.NOT_IMPLEMENTED)
+        assertNotNull(RestError.BAD_REQUEST)
+        assertNotNull(RestError.NOT_FOUND)
+        assertNotNull(RestError.UNAUTHORIZED)
+        assertNotNull(RestError.FORBIDDEN)
+        assertNotNull(RestError.CONFLICT)
+    }
+}
