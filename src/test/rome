@@ -1,0 +1,73 @@
+package com.arval.blm.core.domain.model.crm
+
+import kotlin.test.*
+import com.arval.blm.core.domain.model.*
+
+class CrmRoleDataTest {
+
+    private val reconciliationId = ReconciliationId(
+        batchReference = ReferenceId("BATCH123456"),
+        rowReference = ReferenceId("ROW1234567")
+    )
+
+    @Test
+    fun `should create role data with customer`() {
+        val crmCustomer = CrmCustomerData(
+            id = "CUST1",
+            name = "Test Customer"
+            // ajoute d'autres champs si nécessaires
+        )
+
+        val roleData = CrmRoleData(
+            reconciliationId = reconciliationId,
+            batchId = "BATCH123",
+            rowNumber = 1,
+            crmCustomerData = crmCustomer
+        )
+
+        assertEquals("BATCH123", roleData.batchId)
+        assertEquals(1, roleData.rowNumber)
+        assertEquals("CUST1", roleData.crmCustomerData?.id)
+        assertNull(roleData.crmContactData)
+    }
+
+    @Test
+    fun `should create role data with contact`() {
+        val crmContact = CrmContactData(
+            id = "CONT1",
+            firstName = "Alice",
+            lastName = "Doe"
+            // ajoute d'autres champs si nécessaires
+        )
+
+        val roleData = CrmRoleData(
+            reconciliationId = reconciliationId,
+            batchId = "BATCH456",
+            rowNumber = 2,
+            crmContactData = crmContact
+        )
+
+        assertEquals("BATCH456", roleData.batchId)
+        assertEquals(2, roleData.rowNumber)
+        assertEquals("Alice", roleData.crmContactData?.firstName)
+        assertNull(roleData.crmCustomerData)
+    }
+
+    @Test
+    fun `should support equality`() {
+        val r1 = CrmRoleData(reconciliationId, "BATCH123", 1)
+        val r2 = CrmRoleData(reconciliationId, "BATCH123", 1)
+
+        assertEquals(r1, r2)
+        assertEquals(r1.hashCode(), r2.hashCode())
+    }
+
+    @Test
+    fun `should support copy`() {
+        val original = CrmRoleData(reconciliationId, "BATCH123", 1)
+        val copy = original.copy(batchId = "BATCH999")
+
+        assertEquals("BATCH999", copy.batchId)
+        assertEquals("BATCH123", original.batchId) // original intact
+    }
+}
