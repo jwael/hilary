@@ -1,0 +1,123 @@
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.*
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+
+class OdsProviderAdapterTest {
+
+    private val odsClient: OdsClient = mock(OdsClient::class.java)
+    private val adapter = OdsProviderAdapter(odsClient)
+
+    @Test
+    fun `getTopLevelCompany returns success when top level exists`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val mockResponseBody = CustomerPolicyResponse(
+            response = CustomerPolicy(
+                hierarchy = listOf(
+                    CustomerPolicyHierarchyBody(
+                        companyCode = "TOP123",
+                        LegalName = "Legal",
+                        level = 1,
+                        companyType = "TypeA"
+                    )
+                )
+            ),
+            wsFault = null
+        )
+
+        val response = OdsResponse(
+            isSuccessful = true,
+            body = mockResponseBody,
+            errorBody = null
+        )
+
+        `when`(odsClient.post(anyString(), any())).thenReturn(response)
+
+        val result = adapter.getTopLevelCompany(payload)
+        assertEquals("TOP123", result.companyCode)
+        assertEquals(null, result.message)
+    }
+
+    @Test
+    fun `getTopLevelCompany returns error when response body is null`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val response = OdsResponse(
+            isSuccessful = true,
+            body = null,
+            errorBody = null
+        )
+
+        `when`(odsClient.post(anyString(), any())).thenReturn(response)
+
+        val result = adapter.getTopLevelCompany(payload)
+        assertEquals(null, result.companyCode)
+        assertTrue(result.message!!.contains("Response body is null"))
+    }
+
+    @Test
+    fun `getTopLevelCompany returns error when TIBCO returns failed`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val mockResponseBody = CustomerPolicyResponse(
+            response = null,
+            wsFault = WsFault(errorCode = "500", errorMessage = "Server error", msgId = "MSG1")
+        )
+
+        val response = OdsResponse(
+            isSuccessful = true,
+            body = mockResponseBody,
+            errorBody = null
+        )
+
+        `when`(odsClient.post(anyString(), any())).thenReturn(response)
+
+        val result = adapter.getTopLevelCompany(payload)
+        assertEquals(null, result.companyCode)
+        assertTrue(result.message!!.contains("Server error"))
+    }
+
+    @Test
+    fun `getTopLevelCompany returns not found when no top level`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val mockResponseBody = CustomerPolicyResponse(
+            response = CustomerPolicy(hierarchy = emptyList()),
+            wsFault = null
+        )
+
+        val response = OdsResponse(
+            isSuccessful = true,
+            body = mockResponseBody,
+            errorBody = null
+        )
+
+        `when`(odsClient.post(anyString(), any())).thenReturn(response)
+
+        val result = adapter.getTopLevelCompany(payload)
+        assertEquals(null, result.companyCode)
+        assertTrue(result.message!!.contains("No top level company found"))
+    }
+}
