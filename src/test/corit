@@ -1,0 +1,123 @@
+package com.arval.blm.core.domain.model.contact
+
+import kotlin.test.*
+import java.time.LocalDate
+
+class CrmClsContactDataTest {
+
+    private fun sampleCrmData(
+        forename: String? = "John",
+        surname: String? = "Doe",
+        companyCode: String? = "FR",
+        languageCode: String? = "en",
+        salesforceContactId: String? = null,
+        salesforceRoleId: String? = null,
+        contactRole: String? = "Manager"
+    ) = CrmData(
+        forename = forename,
+        surname = surname,
+        companyCode = companyCode,
+        languageCode = languageCode,
+        salesforceContactId = salesforceContactId,
+        salesforceRoleId = salesforceRoleId,
+        contactRole = contactRole
+    )
+
+    private fun sampleContactData(
+        crmData: CrmData = sampleCrmData(),
+        clsData: Map<String, String> = mapOf("EMPLOYEE_NUMBER" to "123")
+    ) = CrmClsContactData(
+        id = null,
+        batchId = "batch-1",
+        reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("ABCDEF1234"),
+            rowReference = ReferenceId("1234567890")
+        ),
+        rowNumber = 1,
+        rowReference = ReferenceId("1234567890"),
+        crmData = crmData,
+        clsData = clsData,
+        crmInsertedId = null
+    )
+
+    // ---------- validateIsoCodes ----------
+    @Test
+    fun `validateIsoCodes should return errors when country or language is invalid`() {
+        val crmData = sampleCrmData(companyCode = "ZZ", languageCode = "xx")
+        val contact = sampleContactData(crmData)
+
+        val method = contact::class.java.getDeclaredMethod("validateIsoCodes")
+        method.isAccessible = true
+        val errors = method.invoke(contact) as List<String>
+
+        assertTrue(errors.isNotEmpty(), "Expected validation errors but got none")
+    }
+
+    @Test
+    fun `validateIsoCodes should return empty list for valid ISO codes`() {
+        val crmData = sampleCrmData(companyCode = "FR", languageCode = "en")
+        val contact = sampleContactData(crmData)
+
+        val method = contact::class.java.getDeclaredMethod("validateIsoCodes")
+        method.isAccessible = true
+        val errors = method.invoke(contact) as List<String>
+
+        assertTrue(errors.isEmpty(), "Expected no errors but got: $errors")
+    }
+
+    // ---------- isCrmUpdate ----------
+    @Test
+    fun `isCrmUpdate should return true when salesforceContactId is null`() {
+        val contact = sampleContactData(sampleCrmData(salesforceContactId = null))
+        assertTrue(contact.isCrmUpdate())
+    }
+
+    @Test
+    fun `isCrmUpdate should return false when salesforceContactId is set`() {
+        val contact = sampleContactData(sampleCrmData(salesforceContactId = "SF123"))
+        assertFalse(contact.isCrmUpdate())
+    }
+
+    // ---------- isClsUpdate ----------
+    @Test
+    fun `isClsUpdate should return true when EMPLOYEE_NUMBER exists`() {
+        val contact = sampleContactData()
+        assertTrue(contact.isClsUpdate())
+    }
+
+    @Test
+    fun `isClsUpdate should return false when EMPLOYEE_NUMBER is missing`() {
+        val contact = sampleContactData(clsData = emptyMap())
+        assertFalse(contact.isClsUpdate())
+    }
+
+    // ---------- isCreateRole ----------
+    @Test
+    fun `isCreateRole should return true when contactRole is set and salesforceRoleId is null`() {
+        val crmData = sampleCrmData(salesforceContactId = "SF123", salesforceRoleId = null, contactRole = "Manager")
+        val contact = sampleContactData(crmData)
+        assertTrue(contact.isCreateRole())
+    }
+
+    @Test
+    fun `isCreateRole should return false when salesforceContactId is null`() {
+        val crmData = sampleCrmData(salesforceContactId = null, salesforceRoleId = null, contactRole = "Manager")
+        val contact = sampleContactData(crmData)
+        assertFalse(contact.isCreateRole())
+    }
+
+    // ---------- isUpdateRole ----------
+    @Test
+    fun `isUpdateRole should return true when salesforceContactId is null and roleId is not null`() {
+        val crmData = sampleCrmData(salesforceContactId = null, salesforceRoleId = "ROLE123")
+        val contact = sampleContactData(crmData)
+        assertTrue(contact.isUpdateRole())
+    }
+
+    @Test
+    fun `isUpdateRole should return false when salesforceContactId is not null`() {
+        val crmData = sampleCrmData(salesforceContactId = "SF123", salesforceRoleId = "ROLE123")
+        val contact = sampleContactData(crmData)
+        assertFalse(contact.isUpdateRole())
+    }
+}
