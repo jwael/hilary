@@ -1,0 +1,53 @@
+import com.arval.blm.infrastructure.driving.kafka.contact.ClsFeedbackContactKafkaMessage
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ClsFeedbackContactKafkaMessageTest {
+
+    @Test
+    fun `should correctly assign properties`() {
+        val msg = ClsFeedbackContactKafkaMessage(
+            scope = "CRM",
+            status = "SUCCESS",
+            errorMessage = null
+        )
+
+        assertEquals("CRM", msg.scope)
+        assertEquals("SUCCESS", msg.status)
+        assertEquals(null, msg.errorMessage)
+    }
+
+    @Test
+    fun `should support copy`() {
+        val msg = ClsFeedbackContactKafkaMessage(
+            scope = "CRM",
+            status = "FAILED",
+            errorMessage = "Invalid contact ID"
+        )
+        val copy = msg.copy(status = "SUCCESS")
+
+        assertEquals("SUCCESS", copy.status)
+        assertEquals("CRM", copy.scope)
+        assertEquals("Invalid contact ID", copy.errorMessage)
+    }
+
+    @Test
+    fun `should support equals and hashCode`() {
+        val msg1 = ClsFeedbackContactKafkaMessage("CRM", "SUCCESS", null)
+        val msg2 = ClsFeedbackContactKafkaMessage("CRM", "SUCCESS", null)
+
+        assertTrue(msg1 == msg2)
+        assertEquals(msg1.hashCode(), msg2.hashCode())
+    }
+
+    @Test
+    fun `toString should contain all fields`() {
+        val msg = ClsFeedbackContactKafkaMessage("SCOPE", "FAILED", "Some error")
+        val str = msg.toString()
+
+        assertTrue(str.contains("SCOPE"))
+        assertTrue(str.contains("FAILED"))
+        assertTrue(str.contains("Some error"))
+    }
+}
