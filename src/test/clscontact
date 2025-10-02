@@ -1,0 +1,109 @@
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+
+class CrmClsContactDataTest {
+
+    private fun sampleCrmData(
+        salesforceContactId: String? = null,
+        salesforceRoleId: String? = null,
+        contactRole: String? = null,
+        companyCode: String? = "COMP123",
+        languageCode: String? = "en",
+        homeCountry: String? = "FR"
+    ) = CrmData(
+        forename = "John",
+        surname = "Doe",
+        salesforceContactId = salesforceContactId,
+        salesforceRoleId = salesforceRoleId,
+        contactRole = contactRole,
+        companyCode = companyCode,
+        LanguageCode = languageCode,
+        homeCountry = homeCountry
+    )
+
+    private fun sampleContactData(crmData: CrmData) = CrmClsContactData(
+        id = null,
+        batchId = "BATCH123",
+        reconciliationId = ReconciliationId(
+            ReferenceId("BATCH1234567"),
+            ReferenceId("ROW1234567")
+        ),
+        rowNumber = 1,
+        rowReference = ReferenceId("ROW1234567"),
+        crmbata = crmData,
+        clsdata = mapOf("EMPLOYEE_NUMBER" to "EMP001"),
+        crmInsertedId = null
+    )
+
+    @Test
+    fun `isCrmUpdate should return true when salesforceContactId is empty`() {
+        val crmData = sampleCrmData(salesforceContactId = "")
+        val contact = sampleContactData(crmData)
+
+        assertTrue(contact.isCrmUpdate())
+    }
+
+    @Test
+    fun `isClsUpdate should return true when EMPLOYEE_NUMBER exists`() {
+        val crmData = sampleCrmData()
+        val contact = sampleContactData(crmData)
+
+        assertTrue(contact.isClsUpdate())
+    }
+
+    @Test
+    fun `isCreateRole should return true when conditions are met`() {
+        val crmData = sampleCrmData(
+            salesforceContactId = "SF123",
+            salesforceRoleId = null,
+            contactRole = "ADMIN"
+        )
+        val contact = sampleContactData(crmData)
+
+        assertTrue(contact.isCreateRole())
+    }
+
+    @Test
+    fun `isUpdateRole should return true when salesforceContactId is empty but roleId present`() {
+        val crmData = sampleCrmData(
+            salesforceContactId = null,
+            salesforceRoleId = "ROLE123"
+        )
+        val contact = sampleContactData(crmData)
+
+        assertTrue(contact.isUpdateRole())
+    }
+
+    @Test
+    fun `validateIsoCodes should throw when country or language is invalid`() {
+        val crmData = sampleCrmData(languageCode = "xx", homeCountry = "ZZ")
+        assertThrows<IllegalArgumentException> {
+            sampleContactData(crmData) // init doit échouer
+        }
+    }
+
+    @Test
+    fun `keepActualCompanyCode should return true if only CLS update`() {
+        val crmData = sampleCrmData(salesforceContactId = null)
+        val contact = sampleContactData(crmData)
+
+        assertTrue(contact.keepActualCompanyCode)
+    }
+
+    @Test
+    fun `validateRoles should return error when unexpected fields present`() {
+        val crmData = sampleCrmData()
+        val contact = sampleContactData(crmData.copy(jobTitle = "Hacker")) // champ non autorisé
+
+        val errors = contact.runCatching { 
+            val method = contact::class.java.getDeclaredMethod("validateRoles")
+            method.isAccessible = true
+            method.invoke(contact) as List<String>
+        }.getOrNull()
+
+        assertTrue(errors!!.any { it.contains("Unexpected fields") })
+    }
+}
