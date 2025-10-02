@@ -1,0 +1,155 @@
+package com.arval.bim.infrastructure.driving.rest.batch
+
+import com.arval.blm.core.application.contact.OdsProviderAdapter
+import com.arval.blm.core.domain.model.contact.*
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito.*
+import retrofit2.Call
+import retrofit2.Response
+
+class OdsProviderAdapterTest {
+
+    private lateinit var odsClient: OdsClient
+    private lateinit var adapter: OdsProviderAdapter
+
+    @BeforeEach
+    fun setUp() {
+        odsClient = mock(OdsClient::class.java)
+        adapter = OdsProviderAdapter(odsClient)
+    }
+
+    @Test
+    fun `getTopLevelCompany returns success when top level exists`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val customerPolicyResponse = CustomerPolicyResponse(
+            response = CustomerPolicy(
+                hierarchy = listOf(
+                    CustomerPolicyHierarchyBody(
+                        companyCode = "TOP123",
+                        LegalName = "Legal",
+                        level = 1,
+                        companyType = "TypeA"
+                    )
+                )
+            ),
+            wsFault = null
+        )
+
+        val mockCall = mock(Call::class.java) as Call<CustomerPolicyResponse>
+        `when`(mockCall.execute()).thenReturn(Response.success(customerPolicyResponse))
+        `when`(odsClient.post(anyString(), any())).thenReturn(mockCall)
+
+        val result = adapter.getTopLevelCompany(payload)
+
+        assertEquals("TOP123", result.companyCode)
+        assertNull(result.message)
+    }
+
+    @Test
+    fun `getTopLevelCompany returns TOPLEVEL_NOT_FOUND when top level is missing`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val customerPolicyResponse = CustomerPolicyResponse(
+            response = CustomerPolicy(
+                hierarchy = listOf(
+                    CustomerPolicyHierarchyBody(
+                        companyCode = "LOW123",
+                        LegalName = "Legal",
+                        level = 2,
+                        companyType = "TypeA"
+                    )
+                )
+            ),
+            wsFault = null
+        )
+
+        val mockCall = mock(Call::class.java) as Call<CustomerPolicyResponse>
+        `when`(mockCall.execute()).thenReturn(Response.success(customerPolicyResponse))
+        `when`(odsClient.post(anyString(), any())).thenReturn(mockCall)
+
+        val result = adapter.getTopLevelCompany(payload)
+
+        assertNull(result.companyCode)
+        assertTrue(result.message!!.contains("No top level company found"))
+        assertEquals(CompanyTopLevelErrorCode.TOPLEVEL_NOT_FOUND, result.errorCode)
+    }
+
+    @Test
+    fun `getTopLevelCompany returns FETCH_ERROR when wsFault occurs`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val customerPolicyResponse = CustomerPolicyResponse(
+            response = null,
+            wsFault = WsFault(
+                errorCode = "500",
+                errorMessage = "TIBCO error",
+                msgId = "MSG123"
+            )
+        )
+
+        val mockCall = mock(Call::class.java) as Call<CustomerPolicyResponse>
+        `when`(mockCall.execute()).thenReturn(Response.success(customerPolicyResponse))
+        `when`(odsClient.post(anyString(), any())).thenReturn(mockCall)
+
+        val result = adapter.getTopLevelCompany(payload)
+
+        assertNull(result.companyCode)
+        assertTrue(result.message!!.contains("TIBCO:"))
+        assertEquals(CompanyTopLevelErrorCode.FETCH_ERROR, result.errorCode)
+    }
+
+    @Test
+    fun `getTopLevelCompany returns FETCH_ERROR when response body is null`() {
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode("FR"),
+                companyCode = "COMP123"
+            )
+        )
+
+        val mockCall = mock(Call::class.java) as Call<CustomerPolicyResponse>
+        `when`(mockCall.execute()).thenReturn(Response.success(null))
+        `when`(odsClient.post(anyString(), any())).thenReturn(mockCall)
+
+        val result = adapter.getTopLevelCompany(payload)
+
+        assertNull(result.companyCode)
+        assertTrue(result.message!!.contains("Response body is null"))
+        assertEquals(CompanyTopLevelErrorCode.FETCH_ERROR, result.errorCode)
+    }
+
+    @Test
+    fun `getTopLevelCompany throws exception for invalid country code`() {
+        val invalidCountryCode = "XX"
+        val payload = CustomerPolicyRequestPayload(
+            request = CustomerPolicyRequestBody(
+                countrySource = CountryCode(invalidCountryCode),
+                companyCode = "COMP123"
+            )
+        )
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            adapter.getTopLevelCompany(payload)
+        }
+
+        assertEquals("\"$invalidCountryCode\" is not a valid ISO 3166 country code. Please check your input", exception.message)
+    }
+}
