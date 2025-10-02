@@ -1,0 +1,79 @@
+import com.arval.blm.core.domain.model.CountryCode
+import com.arval.blm.core.domain.model.LoaderBatchType
+import com.arval.blm.core.domain.model.LoaderBatchTrigger
+import com.arval.blm.core.application.contact.ImportCustomersUseCaseApi
+import org.junit.jupiter.api.Test
+import org.mockito.Mockito
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.boot.test.mock.mockito.MockBean
+import org.springframework.http.MediaType
+import org.springframework.mock.web.MockMultipartFile
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
+
+@WebMvcTest(CaixaCustomerImportController::class)
+class CaixaCustomerImportControllerTest {
+
+    @Autowired
+    lateinit var mockMvc: MockMvc
+
+    @MockBean
+    lateinit var importCustomersUseCaseApi: ImportCustomersUseCaseApi
+
+    @Test
+    fun `importFile should return 200 OK when CSV file is valid`() {
+        // Création d’un fichier CSV factice
+        val csvContent = "row1,row2,row3\nvalue1,value2,value3"
+        val file = MockMultipartFile(
+            "file",
+            "test.csv",
+            MediaType.TEXT_PLAIN_VALUE,
+            csvContent.toByteArray()
+        )
+
+        // Mock du use case pour qu'il ne fasse rien mais accepte l'appel
+        Mockito.doReturn("BATCH001")
+            .`when`(importCustomersUseCaseApi)
+            .invoke(
+                Mockito.anyList(),
+                Mockito.any(CountryCode::class.java),
+                Mockito.anyString(),
+                Mockito.anyString(),
+                Mockito.any(LoaderBatchType::class.java)
+            )
+
+        // Appel du controller
+        mockMvc.perform(multipart("/api/v1/customers/caixa/import")
+            .file(file)
+        )
+            .andExpect(status().isOk)
+            .andExpect(content().string("SUCCESS 200 OK: File accepted."))
+
+        // Vérification que le use case a été appelé
+        Mockito.verify(importCustomersUseCaseApi).invoke(
+            Mockito.anyList(),
+            Mockito.any(CountryCode::class.java),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.eq(LoaderBatchType.B2C_CAIXA)
+        )
+    }
+
+    @Test
+    fun `importFile should throw IllegalArgumentException when file is not CSV`() {
+        val file = MockMultipartFile(
+            "file",
+            "test.txt",
+            MediaType.TEXT_PLAIN_VALUE,
+            "just some text".toByteArray()
+        )
+
+        mockMvc.perform(multipart("/api/v1/customers/caixa/import")
+            .file(file)
+        )
+            .andExpect(status().isBadRequest)
+    }
+}
