@@ -1,0 +1,77 @@
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
+
+class CustomerPolicyResponseTest {
+
+    @Test
+    fun `isNotFound returns true when response is null`() {
+        val response = CustomerPolicyResponse(response = null, wsFault = null)
+        assertTrue(response.isNotFound())
+    }
+
+    @Test
+    fun `isNotFound returns true when company top level code is null`() {
+        val response = CustomerPolicyResponse(
+            response = CustomerPolicy(hierarchy = emptyList()),
+            wsFault = null
+        )
+        assertTrue(response.isNotFound())
+    }
+
+    @Test
+    fun `isNotFound returns false when company top level code exists`() {
+        val hierarchy = listOf(
+            CustomerPolicyHierarchyBody(
+                companyCode = "COMP123",
+                LegalName = "Legal Name",
+                level = 1,
+                companyType = "TypeA"
+            )
+        )
+        val response = CustomerPolicyResponse(
+            response = CustomerPolicy(hierarchy = hierarchy),
+            wsFault = null
+        )
+        assertFalse(response.isNotFound())
+    }
+
+    @Test
+    fun `isFailed returns true when wsFault is present`() {
+        val wsFault = WsFault(errorCode = "500", errorMessage = "Server error", msgId = "MSG1")
+        val response = CustomerPolicyResponse(response = null, wsFault = wsFault)
+        assertTrue(response.isFailed())
+    }
+
+    @Test
+    fun `errorMessage returns formatted wsFault message`() {
+        val wsFault = WsFault(errorCode = "500", errorMessage = "Server error", msgId = "MSG1")
+        val response = CustomerPolicyResponse(response = null, wsFault = wsFault)
+        val expected = "Error Code: 500 | Error message: Server error | msgId: MSG1"
+        assertEquals(expected, response.errorMessage())
+    }
+
+    @Test
+    fun `getCompanyTopLevelCode returns companyCode of level 1`() {
+        val hierarchy = listOf(
+            CustomerPolicyHierarchyBody(
+                companyCode = "COMP123",
+                LegalName = "Legal Name",
+                level = 1,
+                companyType = "TypeA"
+            ),
+            CustomerPolicyHierarchyBody(
+                companyCode = "COMP456",
+                LegalName = "Other Name",
+                level = 2,
+                companyType = "TypeB"
+            )
+        )
+        val response = CustomerPolicyResponse(
+            response = CustomerPolicy(hierarchy = hierarchy),
+            wsFault = null
+        )
+        assertEquals("COMP123", response.getCompanyTopLevelCode())
+    }
+}
