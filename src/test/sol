@@ -1,0 +1,99 @@
+import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class CrmRoleDataTest {
+
+    @Test
+    fun `should create CrmRoleData with crmContactData only`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH001"),
+            rowReference = ReferenceId("ROW001")
+        )
+
+        val crmContactData = CrmData(
+            forename = "John",
+            surname = "Doe",
+            companycode = "COMP001"
+        )
+
+        val roleData = CrmRoleData(
+            reconciliationId = reconciliationId,
+            batchId = "BATCH001",
+            rowNumber = 1,
+            crmContactData = crmContactData
+        )
+
+        assertEquals("BATCH001", roleData.batchId)
+        assertEquals(1, roleData.rowNumber)
+        assertEquals("John", roleData.crmContactData?.forename)
+        assertEquals("Doe", roleData.crmContactData?.surname)
+        assertEquals("COMP001", roleData.crmContactData?.companycode)
+        assertTrue(roleData.crmCustomerData == null)
+    }
+
+    @Test
+    fun `should create CrmRoleData with crmCustomerData only`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH002"),
+            rowReference = ReferenceId("ROW002")
+        )
+
+        val crmCustomerData = CrmData(
+            forename = "Alice",
+            surname = "Smith",
+            companycode = "COMP002"
+        )
+
+        val roleData = CrmRoleData(
+            reconciliationId = reconciliationId,
+            batchId = "BATCH002",
+            rowNumber = 2,
+            crmCustomerData = crmCustomerData
+        )
+
+        assertEquals("BATCH002", roleData.batchId)
+        assertEquals(2, roleData.rowNumber)
+        assertEquals("Alice", roleData.crmCustomerData?.forename)
+        assertEquals("Smith", roleData.crmCustomerData?.surname)
+        assertEquals("COMP002", roleData.crmCustomerData?.companycode)
+        assertTrue(roleData.crmContactData == null)
+    }
+
+    @Test
+    fun `should create CrmRoleData with both crmContactData and crmCustomerData`() {
+        val reconciliationId = ReconciliationId(
+            batchReference = ReferenceId("BATCH003"),
+            rowReference = ReferenceId("ROW003")
+        )
+
+        val crmContactData = CrmData(
+            forename = "Bob",
+            surname = "Johnson",
+            companycode = "COMP003"
+        )
+
+        val crmCustomerData = CrmData(
+            forename = "Eve",
+            surname = "Williams",
+            companycode = "COMP004"
+        )
+
+        val roleData = CrmRoleData(
+            reconciliationId = reconciliationId,
+            batchId = "BATCH003",
+            rowNumber = 3,
+            crmContactData = crmContactData,
+            crmCustomerData = crmCustomerData
+        )
+
+        assertEquals("BATCH003", roleData.batchId)
+        assertEquals(3, roleData.rowNumber)
+        assertEquals("Bob", roleData.crmContactData?.forename)
+        assertEquals("Johnson", roleData.crmContactData?.surname)
+        assertEquals("COMP003", roleData.crmContactData?.companycode)
+        assertEquals("Eve", roleData.crmCustomerData?.forename)
+        assertEquals("Williams", roleData.crmCustomerData?.surname)
+        assertEquals("COMP004", roleData.crmCustomerData?.companycode)
+    }
+}
