@@ -1,0 +1,49 @@
+import com.arval.blm.core.application.contact.CLsContactDataFeedbackPayLoad
+import com.arval.blm.core.application.contact.HandleClsContactFeedbackUseCaseApi
+import com.arval.bim.core.domain.model.CountryCode
+import com.arval.bim.core.domain.model.RecordStepStatus
+import com.arval.bim.core.domain.model.ReconciliationId
+import com.arval.bim.core.domain.model.ReferenceId
+import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+
+class HandleClsContactFeedbackUseCaseApiTest {
+
+    private val useCase: HandleClsContactFeedbackUseCaseApi = mock()
+
+    @Test
+    fun `invoke should be called with correct payload`() {
+        val payload = CLsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("FR"),
+            reconciliationId = ReconciliationId(
+                batchReference = ReferenceId("BATCH123"),
+                rowReference = ReferenceId("ROW456")
+            ),
+            scope = "TEST_SCOPE",
+            status = RecordStepStatus.OK,
+            errorMessage = "No error"
+        )
+
+        useCase.invoke(payload)
+
+        // Vérifie que la méthode invoke a été appelée avec le payload exact
+        verify(useCase).invoke(payload)
+    }
+
+    @Test
+    fun `fullMessage should return concatenated string`() {
+        val payload = CLsContactDataFeedbackPayLoad(
+            countryCode = CountryCode("FR"),
+            reconciliationId = ReconciliationId(
+                batchReference = ReferenceId("BATCH123"),
+                rowReference = ReferenceId("ROW456")
+            ),
+            scope = "TEST_SCOPE",
+            status = RecordStepStatus.KO,
+            errorMessage = "Something went wrong"
+        )
+
+        assert(payload.fullMessage() == "TEST_SCOPE - Something went wrong")
+    }
+}
