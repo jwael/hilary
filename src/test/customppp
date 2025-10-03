@@ -1,0 +1,90 @@
+import io.mockk.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import java.time.Instant
+import java.util.stream.IntStream
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class ImportCustomersServiceTest {
+
+    private lateinit var service: ImportCustomersService
+    private val crmClsCustomerDataRepositorySpi = mockk<CrmCLsCustomerDataRepositorySpi>()
+    private val recordStepEventRepositorySpi = mockk<RecordStepEventRepositorySpi>(relaxed = true)
+    private val clockProvider = mockk<ClockProvider>()
+    private val referenceIdFactory = mockk<ReferenceIdFactory>()
+    private val crmCustomerProviderSpi = mockk<CrmCustomerProviderSpi>()
+    private val batchRepositorySpi = mockk<BatchRepositoryForContactsSpi>()
+
+    @BeforeEach
+    fun setup() {
+        service = ImportCustomersService(
+            crmClsCustomerDataRepositorySpi,
+            recordStepEventRepositorySpi,
+            clockProvider,
+            referenceIdFactory,
+            crmCustomerProviderSpi,
+            batchRepositorySpi
+        )
+        every { clockProvider.now } returns Instant.now()
+    }
+
+    @Test
+    fun `apply should process all customer payloads correctly`() {
+        val batch = LoaderBatch(id = "batch-1", triggeredBy = "TEST", type = LoaderBatchType.B2C_CAIXA, countryCode = CountryCode("FR"), date = Instant.now())
+
+        // Générer des contacts comme Lezar
+        val contactsToCreate = IntStream.range(0, 2).mapToObj {
+            CustomerPayload(
+                rowNumber = it,
+                crmData = Instancio.of(CrmData::class.java)
+                    .set(CrmData::salesforceRoleId, null)
+                    .set(CrmData::salesforceContactId, null)
+                    .set(CrmData::salutation, "Dr.")
+                    .set(CrmData::title, "Dr.")
+                    .set(CrmData::LanguageCode, "French")
+                    .set(CrmData::sex, "Male")
+                    .set(CrmData::contactRole, "Driver")
+                    .set(CrmData::homeCountry, "FRANCE")
+                    .set(CrmData::workCountry, "FRANCE")
+                    .set(CrmData::homeProvince, "Norrland")
+                    .set(CrmData::workProvince, "Norrland")
+                    .create(),
+                clsData = mapOf(),
+                errorMessage = null
+            )
+        }.toList()
+
+        // Mock du save pour chaque CrmClsCustomerData
+        every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+
+        // Exécution
+        service.apply(batch, contactsToCreate)
+
+        // Vérifier que save a été appelé pour chaque contact
+        verify(exactly = contactsToCreate.size) { crmClsCustomerDataRepositorySpi.save(any()) }
+
+        // Vérifier que des RecordStepEvent KO n'ont pas été créés (puisque pas d'erreur)
+        verify(exactly = 0) {
+            recordStepEventRepositorySpi.save(match { it.stepStatus == RecordStepStatus.KO })
+        }
+    }
+
+    @Test
+    fun `apply should throw exception for CustomerPayload with errorMessage`() {
+        val batch = LoaderBatch(id = "batch-1", triggeredBy = "TEST", type = LoaderBatchType.B2C_CAIXA, countryCode = CountryCode("FR"), date = Instant.now())
+        val payloadWithError = CustomerPayload(
+            rowNumber = 1,
+            crmData = CrmData(),
+            clsData = mapOf(),
+            errorMessage = "Some error"
+        )
+
+        val exception = assertFailsWith<Exception> {
+            service.apply(batch, listOf(payloadWithError))
+        }
+
+        assertEquals("SipersonalAccount-encorMessaget", exception.message)
+        verify { recordStepEventRepositorySpi.save(any()) }
+    }
+}
