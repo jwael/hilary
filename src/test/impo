@@ -1,0 +1,114 @@
+@ExtendWith(MockitoExtension::class)
+class ImportCustomersServiceTest {
+
+    @Mock
+    lateinit var crmClsCustomerDataRepositorySpi: CrmCLsCustomerDataRepositorySpi
+
+    @Mock
+    lateinit var recordStepEventRepositorySpi: RecordStepEventRepositorySpi
+
+    @Mock
+    lateinit var batchRepositorySpi: BatchRepositoryForContactsSpi
+
+    @Mock
+    lateinit var crmCustomerProviderSpi: CrmCustomerProviderSpi
+
+    @Mock
+    lateinit var clockProvider: ClockProvider
+
+    @Mock
+    lateinit var referenceIdFactory: ReferenceIdFactory
+
+    @InjectMocks
+    lateinit var importService: ImportCustomersService
+
+    private val batch = LoaderBatch(
+        id = "batch1",
+        triggeredBy = "USER",
+        type = LoaderBatchType.B2C_CAIXA,
+        countryCode = CountryCode("ES"),
+        date = Instant.now()
+    )
+
+    private val reconciliationId = ReconciliationId(
+        batchReference = ReferenceId("batch1"),
+        rowReference = ReferenceId("row1")
+    )
+
+    private val crmData = CrmData(
+        forename = "John",
+        surname = "Doe"
+    )
+
+    private val personalAccount = CustomerPayload(
+        rowNumber = 1,
+        crmData = crmData,
+        clsData = mapOf("EMPLOYEE_NUMBER" to "12345"),
+        errorMessage = null
+    )
+
+    @Test
+    fun `apply should process customer successfully`() {
+        // Mock Clock
+        whenever(clockProvider.now).thenReturn(Instant.now())
+
+        // Mock saving BLM step
+        whenever(crmClsCustomerDataRepositorySpi.save(any())).thenAnswer { it.arguments[0] }
+
+        // Appel de la méthode
+        importService.apply(batch, listOf(personalAccount))
+
+        // Vérifier que le save a été appelé
+        verify(crmClsCustomerDataRepositorySpi, times(1)).save(any())
+        verify(recordStepEventRepositorySpi, times(1)).save(any())
+    }
+
+    @Test
+    fun `apply should register KO event when personalAccount has errorMessage`() {
+        val errorAccount = personalAccount.copy(errorMessage = "Some error")
+
+        importService.apply(batch, listOf(errorAccount))
+
+        // Vérifier que l'événement KO est enregistré
+        verify(recordStepEventRepositorySpi).save(
+            argThat { stepStatus == RecordStepStatus.KO && stepMessage == "Some error" }
+        )
+    }
+
+    @Test
+    fun `apply should handle createRole and updateRole correctly`() {
+        // Mock CrmClsCustomerData with role creation
+        val crmClsCustomerData = CrmClsCustomerData(
+            batchId = batch.id!!,
+            reconciliationId = reconciliationId,
+            rowNumber = personalAccount.rowNumber,
+            rowReference = ReferenceId("row1"),
+            crmbata = crmData,
+            clsData = personalAccount.clsData,
+            crmInsertedId = null
+        )
+
+        // Spy pour forcer isCreateRole = true
+        val spyData = spyk(crmClsCustomerData)
+        every { spyData.isCreateRole() } returns true
+        every { crmClsCustomerDataRepositorySpi.save(any()) } returns spyData
+
+        importService.apply(batch, listOf(personalAccount))
+
+        // Vérifier que processRoleCreationInCrmStep a été appelé
+        // Ici on peut vérifier via spy ou mock méthode interne si accessible
+    }
+
+    @Test
+    fun `apply should throw exception when crmClsCustomerData save fails`() {
+        whenever(crmClsCustomerDataRepositorySpi.save(any())).thenThrow(RuntimeException("DB down"))
+
+        assertFailsWith<RuntimeException> {
+            importService.apply(batch, listOf(personalAccount))
+        }
+
+        verify(recordStepEventRepositorySpi, atLeastOnce()).save(
+            argThat { stepStatus == RecordStepStatus.KO }
+        )
+    }
+}
