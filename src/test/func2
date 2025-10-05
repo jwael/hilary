@@ -1,0 +1,92 @@
+@Nested
+inner class ProcessCustomerCreationTests {
+
+    @Test
+    fun `should save customer and record step event when CRM creation is successful`() {
+        // GIVEN
+        val crmClsCustomerData = CustomerPayload(
+            rowNumber = 0,
+            crmData = CrmData(
+                title = "Dr.",
+                salutation = "Dr.",
+                prefLanguageComm = "French",
+                gender = "Male",
+                contactRole = "Driver",
+                country = "GB",
+                mainCountry = "GB"
+            ),
+            clsData = mapOf()
+        ).let { createCrmClsCustomerData(newBatch, it) }
+
+        val crmResponse = CrmCustomerResponsePayload(
+            crmAccountId = "CRM123",
+            crmStatus = RecordStepStatus.OK,
+            message = "Customer created",
+            updateRequired = false
+        )
+
+        every { crmCustomerProviderSpi.createCrmCustomer(crmClsCustomerData) } returns crmResponse
+        every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+        every { recordStepEventRepositorySpi.save(any()) } answers { firstArg() }
+        every { clockProvider.now() } returns Instant.MIN
+
+        // WHEN
+        importCustomersService.processCustomerCreationInCrmStep(crmClsCustomerData)
+
+        // THEN
+        // Vérifie que le customer a été sauvegardé avec le CRM response
+        verify { crmClsCustomerDataRepositorySpi.save(match {
+            it.salesforceAccountId == crmResponse.crmAccountId
+        }) }
+
+        // Vérifie que le step event a été enregistré avec le bon status et message
+        verify { recordStepEventRepositorySpi.save(match {
+            it.batchId == newBatch.id &&
+            it.rowNumber == crmClsCustomerData.rowNumber &&
+            it.stepStatus == crmResponse.crmStatus &&
+            it.stepMessage == crmResponse.getMessage()
+        }) }
+
+        // Vérifie que la méthode createCrmCustomer a bien été appelée
+        verify(exactly = 1) { crmCustomerProviderSpi.createCrmCustomer(crmClsCustomerData) }
+    }
+
+    @Test
+    fun `should call update customer step when CRM creation requires update`() {
+        // GIVEN
+        val crmClsCustomerData = CustomerPayload(
+            rowNumber = 0,
+            crmData = CrmData(
+                title = "Dr.",
+                salutation = "Dr.",
+                prefLanguageComm = "French",
+                gender = "Male",
+                contactRole = "Driver",
+                country = "GB",
+                mainCountry = "GB"
+            ),
+            clsData = mapOf()
+        ).let { createCrmClsCustomerData(newBatch, it) }
+
+        val crmResponse = CrmCustomerResponsePayload(
+            crmAccountId = "CRM123",
+            crmStatus = RecordStepStatus.OK,
+            message = "Customer created",
+            updateRequired = true
+        )
+
+        every { crmCustomerProviderSpi.createCrmCustomer(crmClsCustomerData) } returns crmResponse
+        every { importCustomersService.processCustomerUpdateInCrmStep(any()) } just Runs
+        every { clockProvider.now() } returns Instant.MIN
+
+        // WHEN
+        importCustomersService.processCustomerCreationInCrmStep(crmClsCustomerData)
+
+        // THEN
+        verify(exactly = 1) { importCustomersService.processCustomerUpdateInCrmStep(match {
+            it.salesforceAccountId == crmResponse.crmAccountId
+        }) }
+
+        verify(exactly = 1) { crmCustomerProviderSpi.createCrmCustomer(crmClsCustomerData) }
+    }
+}
