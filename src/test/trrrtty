@@ -1,0 +1,76 @@
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import java.time.Instant
+import java.util.stream.IntStream
+
+// Mocks
+private val referenceIdFactory: ReferenceIdFactory = mockk()
+private val clockProvider: ClockProvider = mockk()
+private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk()
+private val batchRepositorySpi: BatchRepositoryForContactsSpi = mockk()
+private val crmCustomerProviderSpi: CrmCustomerProviderSpi = mockk()
+private val clsProviderSpi: ClsProviderSpi = mockk()
+private val odsProviderSpi: OdsProviderSpi = mockk(relaxed = true)
+private val countryPrefixSpi: CountryPrefixSpi = mockk(relaxed = true)
+private val recordStepEventRepositorySpi: RecordStepEventRepositorySpi = mockk(relaxed = true)
+private val contactsMetricRegistrySpi: ContactsMetricRegistrySpi = mockk(relaxed = true)
+
+// Stub des méthodes essentielles
+every { referenceIdFactory.generate() } returnsMany IntStream.range(1, 9)
+    .mapToObj { ReferenceId(it.toString().repeat(10)) }
+    .toList()
+
+every { clockProvider.now() } returns Instant.MIN
+
+every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+every { batchRepositorySpi.save(any()) } answers { firstArg() }
+every { crmCustomerProviderSpi.createCrmContact(any(), any()) } answers { firstArg() }
+every { clsProviderSpi.sendContactToCls(any(), any()) } answers { firstArg() }
+
+// Exemple de données pour test
+private val contactsToCreate = IntStream.range(0, 2).mapToObj {
+    CustomerPayload(
+        rowNumber = it,
+        crmData = CrmData(
+            title = "Dr.",
+            salutation = "Dr.",
+            prefLanguageComm = "French",
+            gender = "Male",
+            contactRole = "Driver",
+            country = "FR",
+            mainCountry = "FR"
+        ),
+        clsData = mapOf()
+    )
+}.toList()
+
+private val batchReference = ReferenceId("HVrA7jQziv")
+private val countryCodeUK = CountryCode("GB")
+
+private val newBatch = LoaderBatch(
+    id = "AAAAA",
+    reference = batchReference,
+    fileName = "a-file-name.csv",
+    triggeredBy = "u00001",
+    countryCode = countryCodeUK,
+    status = LoaderBatchStatus.RUNNING,
+    startDate = Instant.MIN,
+    endDate = Instant.MIN,
+    totalContacts = contactsToCreate.size,
+    type = LoaderBatchType.CONTACTS
+)
+
+// Instanciation du service
+private val importContactService = ImportCustomersService(
+    referenceIdFactory = referenceIdFactory,
+    clockProvider = clockProvider,
+    crmClsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+    batchRepositorySpi = batchRepositorySpi,
+    crmCustomerProviderSpi = crmCustomerProviderSpi,
+    clsProviderSpi = clsProviderSpi,
+    odsProviderSpi = odsProviderSpi,
+    countryPrefixSpi = countryPrefixSpi,
+    recordStepEventRepositorySpi = recordStepEventRepositorySpi,
+    contactsMetricRegistrySpi = contactsMetricRegistrySpi
+)
