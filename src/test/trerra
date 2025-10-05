@@ -1,0 +1,140 @@
+package com.arval.blm.core.domain.service
+
+import com.arval.blm.core.domain.model.contact.*
+import com.arval.blm.core.domain.spi.*
+import com.arval.blm.core.domain.model.batch.LoaderBatch
+import com.arval.blm.core.domain.model.common.ReconciliationId
+import com.arval.blm.core.domain.model.common.ReferenceId
+import com.arval.blm.core.domain.model.events.RecordStepEvent
+import com.arval.blm.core.domain.model.events.StepStatus
+import io.mockk.*
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.time.Instant
+
+class ImportCustomersServiceTest {
+
+    private lateinit var service: ImportCustomersService
+
+    private val crmClsCustomerDataRepositorySpi = mockk<CrmClsCustomerDataRepositorySpi>()
+    private val recordStepEventRepositorySpi = mockk<RecordStepEventRepositorySpi>(relaxed = true)
+    private val clockProvider = mockk<ClockProvider>()
+    private val referenceIdFactory = mockk<ReferenceIdFactory>()
+    private val crmCustomerProviderSpi = mockk<CrmCustomerProviderSpi>()
+    private val batchRepositorySpi = mockk<BatchRepositoryForContactsSpi>()
+
+    @BeforeEach
+    fun setup() {
+        service = spyk(
+            ImportCustomersService(
+                crmClsCustomerDataRepositorySpi,
+                recordStepEventRepositorySpi,
+                clockProvider,
+                referenceIdFactory,
+                crmCustomerProviderSpi,
+                batchRepositorySpi
+            )
+        )
+    }
+
+    @Test
+    fun `should save and process valid customers successfully`() {
+        // Arrange
+        val batch = LoaderBatch(reference = "BATCH-001")
+
+        val crmData = CrmData(
+            firstName = "John",
+            surname = "Doe",
+            country = "FRANCE",
+            email = "john.doe@email.com"
+        )
+        val payload = CustomerPayLoad(
+            rowNumber = 1,
+            crmbata = crmData,
+            clsData = mapOf("EMPLOYEE_NUMBER" to "E123"),
+            errorMessage = null
+        )
+
+        val rowRef = ReferenceId("ROW-1")
+        val reconciliationId = ReconciliationId("BATCH-001", rowRef)
+
+        val crmClsCustomerData = mockk<CrmClsCustomerData>()
+
+        every { referenceIdFactory.generate() } returns rowRef
+        every { clockProvider.now } returns Instant.now()
+        every { crmClsCustomerDataRepositorySpi.save(any()) } returns crmClsCustomerData
+
+        every { service["createCrmClsCustomerData"](any<LoaderBatch>(), any<CustomerPayLoad>()) } returns crmClsCustomerData
+
+        every { crmClsCustomerData.isCrmUpdate() } returns false
+        every { crmClsCustomerData.isCreateRole() } returns false
+        every { crmClsCustomerData.isUpdateRole() } returns false
+
+        every { service["processCustomerCreationInCrmStep"](crmClsCustomerData) } just Runs
+
+        // Act
+        service.apply(batch, listOf(payload))
+
+        // Assert
+        verify(exactly = 1) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = 1) { recordStepEventRepositorySpi.save(any()) }
+        verify(exactly = 1) { service["processCustomerCreationInCrmStep"](any()) }
+    }
+
+    @Test
+    fun `should record KO event when customer has error message`() {
+        // Arrange
+        val batch = LoaderBatch(reference = "BATCH-002")
+
+        val crmData = CrmData(firstName = "Error", surname = "Case")
+        val payload = CustomerPayLoad(
+            rowNumber = 2,
+            crmbata = crmData,
+            clsData = emptyMap(),
+            errorMessage = "Invalid record"
+        )
+
+        every { clockProvider.now } returns Instant.now()
+
+        // Act
+        service.apply(batch, listOf(payload))
+
+        // Assert
+        verify(exactly = 1) {
+            recordStepEventRepositorySpi.save(
+                match { it.stepStatus == StepStatus.KO && it.stepMessage?.contains("Invalid record") == true }
+            )
+        }
+    }
+
+    @Test
+    fun `should record KO event when exception occurs during saving`() {
+        // Arrange
+        val batch = LoaderBatch(reference = "BATCH-003")
+        val crmData = CrmData(firstName = "Jane", surname = "Doe")
+
+        val payload = CustomerPayLoad(
+            rowNumber = 3,
+            crmbata = crmData,
+            clsData = emptyMap(),
+            errorMessage = null
+        )
+
+        val crmClsCustomerData = mockk<CrmClsCustomerData>()
+
+        every { service["createCrmClsCustomerData"](any<LoaderBatch>(), any<CustomerPayLoad>()) } returns crmClsCustomerData
+        every { crmClsCustomerDataRepositorySpi.save(any()) } throws RuntimeException("DB Failure")
+        every { clockProvider.now } returns Instant.now()
+
+        // Act
+        service.apply(batch, listOf(payload))
+
+        // Assert
+        verify {
+            recordStepEventRepositorySpi.save(
+                match { it.stepStatus == StepStatus.KO && it.stepMessage?.contains("DB Failure") == true }
+            )
+        }
+    }
+}
