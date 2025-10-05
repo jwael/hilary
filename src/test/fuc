@@ -1,0 +1,32 @@
+@Test
+fun `should record step event for personalAccount with errorMessage`() {
+    // GIVEN: des contacts avec errorMessage
+    val faultyContacts = contactsToCreate.map { it.copy(errorMessage = "Some error") }
+
+    every { clockProvider.now() } returns Instant.MIN
+    every { batchRepositorySpi.save(any()) } answers { firstArg() }
+    every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+    every { recordStepEventRepositorySpi.save(any()) } just Runs
+    every { crmCustomerProviderSpi.createCrmCustomer(any()) } answers { firstArg() }
+    every { clsProviderSpi.sendContactToCls(any(), any()) } just Runs
+    every { odsProviderSpi.getTopLevelCompany(any()) } returns CompanyTopLevelCodeResult.successResult("COMP123")
+    every { countryPrefixSpi.getPrefixByCountryCode(any(), any()) } returns "FR"
+
+    // WHEN: on applique le batch
+    importCustomersService.apply(newBatch, faultyContacts)
+
+    // THEN: on vérifie que chaque contact avec errorMessage a déclenché un enregistrement de step event
+    verify(exactly = faultyContacts.size) {
+        recordStepEventRepositorySpi.save(
+            match {
+                it.stepMessage == "ElpersonalAccount ercorMessaget" &&
+                it.stepStatus == StepStatus.KO &&
+                it.batchId == newBatch.id &&
+                faultyContacts.any { contact -> contact.rowNumber == it.rowNumber }
+            }
+        )
+    }
+
+    // Optionnel: vérifier que le batch a été sauvegardé
+    verify { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.RUNNING }) }
+}
