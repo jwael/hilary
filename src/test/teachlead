@@ -1,0 +1,91 @@
+class ImportCustomersServiceTest {
+
+    // --- GIVEN: Setup partagé pour tous les tests ---
+    private val referenceIdFactory: ReferenceIdFactory = mockk {
+        every { generate() } returnsMany List(4) { ReferenceId(it.toString().repeat(10)) }
+    }
+    private val clockProvider: ClockProvider = mockk { every { now() } returns Instant.MIN }
+    private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk()
+    private val batchRepositorySpi: BatchRepositoryForContactsSpi = mockk()
+    private val crmContactProviderSpi: CrmCustomerProviderSpi = mockk()
+    private val clsProviderSpi: ClsProviderSpi = mockk()
+    private val odsProviderSpi: OdsProviderSpi = mockk()
+    private val countryPrefixSpi: CountryPrefixSpi = mockk()
+    private val recordStepEventRepositorySpi: RecordStepEventRepositorySpi = mockk(relaxed = true)
+    private val contactsMetricRegistrySpi: ContactsMetricRegistrySpi = mockk(relaxed = true)
+
+    private val countryCodeUK = CountryCode("GB")
+
+    private val contactsToCreate = List(2) { i ->
+        CustomerPayLoad(
+            rowNumber = i,
+            crmData = CrmData(
+                mainCountry = "GB",
+                title = "Dr.",
+                firstName = "John",
+                surname = "Doe",
+                gender = "Male",
+                country = "GB",
+                state = "Norrland"
+            ),
+            clsData = mapOf("EMPLOYEE_NUMBER" to "E${i+100}")
+        )
+    }
+
+    private val newBatch = LoaderBatch(
+        id = "AAAAA",
+        reference = ReferenceId("HVrA7jQziv"),
+        fileName = "a-file-name.csv",
+        triggeredBy = "u00001",
+        countryCode = countryCodeUK,
+        status = LoaderBatchStatus.RUNNING,
+        startDate = Instant.MIN,
+        endDate = Instant.MIN,
+        totalContacts = contactsToCreate.size,
+        type = LoaderBatchType.CONTACTS
+    )
+
+    private val importContactService = ImportCustomersService(
+        referenceIdFactory,
+        clockProvider,
+        crmClsCustomerDataRepositorySpi,
+        batchRepositorySpi,
+        crmContactProviderSpi,
+        clsProviderSpi,
+        odsProviderSpi,
+        countryPrefixSpi,
+        recordStepEventRepositorySpi,
+        contactsMetricRegistrySpi
+    )
+
+    // --- WHEN: Test function ---
+    @Test
+    fun `it should process all contacts when companyCodeLevelResult is successful`() {
+        // GIVEN
+        val companyCode = "COMP123"
+        val errorCode: CompanyTopLevelErrorCode? = null
+
+        val companyTopLevelCodeResult = CompanyTopLevelCodeResult(
+            companyCode = companyCode,
+            errorCode = errorCode
+        )
+
+        every { batchRepositorySpi.save(any()) } answers { firstArg() }
+        every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+        every { crmContactProviderSpi.createCrmContact(any(), any()) } returns Unit
+        every { clsProviderSpi.sendContactToCls(any(), any()) } returns Unit
+        every { odsProviderSpi.getTopLevelCompany(any()) } returns companyTopLevelCodeResult
+        every { countryPrefixSpi.getPrefixByCountryCode(countryCodeUK, any()) } returns "GB"
+
+        // WHEN
+        importContactService.apply(newBatch, contactsToCreate)
+
+        // THEN: Verify all steps called correct number of times
+        verify(exactly = contactsToCreate.size * 2) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = contactsToCreate.size) { crmContactProviderSpi.createCrmContact(any(), any()) }
+        verify(exactly = 0) { clsProviderSpi.sendContactToCls(any(), any()) }
+        verify(exactly = contactsToCreate.size) { odsProviderSpi.getTopLevelCompany(any()) }
+        verify(exactly = contactsToCreate.size) { countryPrefixSpi.getPrefixByCountryCode(countryCodeUK, any()) }
+        verify { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.DONE }) }
+    }
+}
