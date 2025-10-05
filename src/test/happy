@@ -1,0 +1,110 @@
+import io.mockk.*
+import org.junit.jupiter.api.*
+import java.time.Instant
+import java.util.stream.IntStream
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class ImportCustomerServiceTest {
+
+    // ===== Mocks =====
+    private val referenceIdFactory: ReferenceIdFactory = mockk()
+    private val clockProvider: ClockProvider = mockk()
+    private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk()
+    private val batchRepositorySpi: BatchRepositoryForContactsSpi = mockk()
+    private val crmCustomerProviderSpi: CrmCustomerProviderSpi = mockk()
+    private val clsProviderSpi: ClsProviderSpi = mockk()
+    private val odsProviderSpi: OdsProviderSpi = mockk(relaxed = true)
+    private val countryPrefixSpi: CountryPrefixSpi = mockk(relaxed = true)
+    private val recordStepEventRepositorySpi: RecordStepEventRepositorySpi = mockk(relaxed = true)
+
+    // ===== Données de test =====
+    private val contactsToCreate = IntStream.range(0, 2).mapToObj { index ->
+        CustomerPayload(
+            rowNumber = index,
+            crmData = CrmData(
+                title = "Dr.",
+                salutation = "Dr.",
+                prefLanguageComm = "French",
+                gender = "Male",
+                contactRole = "Driver",
+                country = "GB",
+                mainCountry = "GB"
+            ),
+            clsData = mapOf()
+        )
+    }.toList()
+
+    private val batchReference = ReferenceId(value = "HVrA7jQziv")
+    private val countryCodeUK = CountryCode("GB")
+
+    private val newBatch = LoaderBatch(
+        id = "AAAAA",
+        reference = batchReference,
+        fileName = "a-file-name.csv",
+        triggeredBy = "u00001",
+        countryCode = countryCodeUK,
+        status = LoaderBatchStatus.RUNNING,
+        startDate = Instant.MIN,
+        endDate = Instant.MIN,
+        totalContacts = contactsToCreate.size,
+        type = LoaderBatchType.CONTACTS
+    )
+
+    // ===== Service à tester =====
+    private val importCustomerService = ImportCustomersService(
+        referenceIdFactory = referenceIdFactory,
+        clockProvider = clockProvider,
+        crmClsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+        batchRepositorySpi = batchRepositorySpi,
+        crmCustomerProviderSpi = crmCustomerProviderSpi,
+        recordStepEventRepositorySpi = recordStepEventRepositorySpi
+    )
+
+    // ===== Setup général des mocks =====
+    @BeforeEach
+    fun setup() {
+        every { clockProvider.now() } returns Instant.MIN
+        every { batchRepositorySpi.save(loaderBatch = any()) } answers { firstArg() }
+        every { crmClsCustomerDataRepositorySpi.save(crmClsCustomerData = any()) } answers { firstArg() }
+        every { crmCustomerProviderSpi.createCrmCustomer(crmClsCustomerData = any()) } answers { firstArg() }
+        every { odsProviderSpi.getTopLevelCompany(customerPolicyRequestPayload = match { it.countrySource.value == "GB" }) } returns CompanyTopLevelCodeResult(
+            companyCode = "COMP123",
+            errorCode = null
+        )
+        every { countryPrefixSpi.getPrefixByCountryCode(countryCode = any(), isProspect = any()) } returns "09"
+        every { recordStepEventRepositorySpi.save(recordStepEvent = any()) } answers { firstArg() }
+        every { referenceIdFactory.generate() } returns ReferenceId("REF1234567")
+    }
+
+    // ===== Tests =====
+    @Nested
+    inner class ApplyFunctionTests {
+
+        @Test
+        fun `should throw exception for personalAccount with errorMessage`() {
+            // GIVEN: des contacts avec errorMessage
+            val faultyContacts = contactsToCreate.map { it.copy(errorMessage = "Some error") }
+
+            // WHEN / THEN
+            val exception = assertFailsWith<Exception> {
+                importCustomerService.apply(newBatch, faultyContacts)
+            }
+
+            assertEquals(
+                expected = "ElpersonalAccount ercorMessaget",
+                actual = exception.message
+            )
+
+            // Vérification que les step events KO ont été enregistrés
+            faultyContacts.forEach { contact ->
+                verify { recordStepEventRepositorySpi.save(match {
+                    it.stepMessage == "ElpersonalAccount ercorMessaget" &&
+                    it.stepStatus == RecordStepStatus.KO &&
+                    it.batchId == newBatch.id &&
+                    it.rowNumber == contact.rowNumber
+                }) }
+            }
+        }
+    }
+}
