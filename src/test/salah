@@ -16,6 +16,32 @@ import kotlin.test.assertFailsWith
 
 class ImportCustomersServiceTest {
 
+private val contactsToCreate = (0 until 2).map { i ->
+    CustomerPayload(
+        rowNumber = i,
+        crmData = CrmData(
+            title = "Dr.",
+            salutation = "Dr.",
+            prefLanguageComm = "French",
+            gender = "Male",
+            contactRole = "Driver",
+            mainCountry = "FRANCE",
+            personalCountry = "FRANCE",
+            personalProvince = "Norrland",
+            professionalProvince = "Norrland",
+            salesforceContactId = null,
+            salesforceRoleId = null
+        ),
+        clsData = mapOf(
+            "EMPLOYEE_NUMBER" to "EMP${i + 1}",
+            "DEPARTMENT" to "Dept${i + 1}"
+        ),
+        errorMessage = null
+    )
+}
+
+
+
 private val contactsToCreate = IntStream.range(0, 2).mapToObj { i ->
     CustomerPayload(
         rowNumber = i,
