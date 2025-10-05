@@ -1,0 +1,121 @@
+package com.arval.blm.core.application
+
+import com.arval.blm.core.domain.model.contact.*
+import com.arval.blm.infrastructure.driven.tibco.customer_policy.OdsProviderSpi
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import org.instancio.Instancio
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
+import java.time.Instant
+import java.time.LocalDate
+import java.util.stream.IntStream
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+
+class ImportCustomersServiceTest {
+
+    private val referenceIdFactory: ReferenceIdFactory = mockk()
+    private val clockProvider: ClockProvider = mockk()
+    private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk(relaxed = true)
+    private val batchRepositorySpi: BatchRepositoryForContactsSpi = mockk(relaxed = true)
+    private val crmCustomerProviderSpi: CrmCustomerProviderSpi = mockk(relaxed = true)
+    private val clsProviderSpi: ClsProviderSpi = mockk(relaxed = true)
+    private val odsProviderSpi: OdsProviderSpi = mockk(relaxed = true)
+    private val countryPrefixSpi: CountryPrefixSpi = mockk(relaxed = true)
+    private val recordStepEventRepositorySpi: RecordStepEventRepositorySpi = mockk(relaxed = true)
+    private val contactsMetricRegistrySpi: ContactsMetricRegistrySpi = mockk(relaxed = true)
+
+    private val contactsToCreate = IntStream.range(0, 2).mapToObj {
+        CustomerPayload(
+            rowNumber = it,
+            crmData = Instancio.of(CrmData::class.java)
+                .set(CrmData::title, "Dr.")
+                .set(CrmData::salutation, "Dr.")
+                .set(CrmData::languageCode, "French")
+                .set(CrmData::gender, "Male")
+                .set(CrmData::contactRole, "Driver")
+                .set(CrmData::mainCountry, "FRANCE")
+                .set(CrmData::personalCountry, "FRANCE")
+                .set(CrmData::personalProvince, "Norrland")
+                .set(CrmData::professionalProvince, "Norrland")
+                .set(CrmData::salesforceContactId, null)
+                .set(CrmData::salesforceRoleId, null)
+                .create(),
+            clsData = mapOf(),
+            errorMessage = null
+        )
+    }.toList()
+
+    private val batchReference = ReferenceId(value = "HVrA7jQziv")
+    private val countryCodeUK = CountryCode(countryCode = "GB")
+
+    private val newBatch = LoaderBatch(
+        id = "AAAAA",
+        reference = batchReference,
+        fileName = "a-file-name.csv",
+        triggeredBy = "u00001",
+        countryCode = countryCodeUK,
+        status = LoaderBatchStatus.RUNNING,
+        startDate = Instant.MIN,
+        endDate = Instant.MIN,
+        totalContacts = contactsToCreate.size,
+        type = LoaderBatchType.CONTACTS
+    )
+
+    private val importCustomersService = ImportCustomersService(
+        referenceIdFactory = referenceIdFactory,
+        clockProvider = clockProvider,
+        crmClsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+        batchRepositorySpi = batchRepositorySpi,
+        crmCustomerProviderSpi = crmCustomerProviderSpi,
+        clsProviderSpi = clsProviderSpi,
+        odsProviderSpi = odsProviderSpi,
+        countryPrefixSpi = countryPrefixSpi,
+        recordStepEventRepositorySpi = recordStepEventRepositorySpi,
+        contactsMetricRegistrySpi = contactsMetricRegistrySpi
+    )
+
+    @Nested
+    inner class ApplyFunctionTests {
+
+        @Test
+        fun `should process all contacts when companyCodeLevelResult is successful`() {
+            // GIVEN
+            val companyCode = "COMP123"
+            val errorCode: CompanyTopLevelErrorCode? = null
+
+            every { referenceIdFactory.generate() } returns ReferenceId("REF1234567")
+            every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+            every { batchRepositorySpi.save(any()) } answers { firstArg() }
+            every { crmCustomerProviderSpi.createCrmContact(any(), any()) } answers { firstArg() }
+            every { clsProviderSpi.sendContactToCls(any(), any()) } answers { firstArg() }
+            every { odsProviderSpi.getTopLevelCompany(any()) } returns CompanyTopLevelCodeResult(companyCode, errorCode)
+            every { countryPrefixSpi.getPrefixByCountryCode(countryCodeUK, false) } returns "GB-"
+
+            // WHEN
+            importCustomersService.apply(newBatch, contactsToCreate)
+
+            // THEN
+            verify(exactly = contactsToCreate.size) { crmClsCustomerDataRepositorySpi.save(any()) }
+            verify(exactly = contactsToCreate.size) { crmCustomerProviderSpi.createCrmContact(any(), any()) }
+            verify(exactly = 0) { clsProviderSpi.sendContactToCls(any(), any()) }
+            verify(exactly = contactsToCreate.size) { odsProviderSpi.getTopLevelCompany(any()) }
+            verify(exactly = contactsToCreate.size) { countryPrefixSpi.getPrefixByCountryCode(countryCodeUK, false) }
+            verify { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.RUNNING }) }
+        }
+
+        @Test
+        fun `should throw exception for personalAccount with errorMessage`() {
+            // GIVEN
+            val faultyContacts = contactsToCreate.map { it.copy(errorMessage = "Some error") }
+
+            // WHEN / THEN
+            val exception = assertFailsWith<Exception> {
+                importCustomersService.apply(newBatch, faultyContacts)
+            }
+            assertEquals("ElpersonalAccount ercorMessaget", exception.message)
+        }
+    }
+}
