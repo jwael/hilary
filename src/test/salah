@@ -16,6 +16,30 @@ import kotlin.test.assertFailsWith
 
 class ImportCustomersServiceTest {
 
+private val contactsToCreate = IntStream.range(0, 2).mapToObj { i ->
+    CustomerPayload(
+        rowNumber = i,
+        crmData = Instancio.of(CrmData::class.java)
+            .set(CrmData::title, "Dr.")
+            .set(CrmData::salutation, "Dr.")
+            .set(CrmData::prefLanguageComm, "French")
+            .set(CrmData::gender, "Male")
+            .set(CrmData::contactRole, "Driver")
+            .set(CrmData::mainCountry, "FRANCE")
+            .set(CrmData::personalCountry, "FRANCE")
+            .set(CrmData::personalProvince, "Norrland")
+            .set(CrmData::professionalProvince, "Norrland")
+            .set(CrmData::salesforceContactId, null)
+            .set(CrmData::salesforceRoleId, null)
+            .create(),
+        clsData = mapOf(
+            "EMPLOYEE_NUMBER" to "EMP${i + 1}",
+            "DEPARTMENT" to "Dept${i + 1}"
+        ),
+        errorMessage = null
+    )
+}.toList()
+
     private val referenceIdFactory: ReferenceIdFactory = mockk()
     private val clockProvider: ClockProvider = mockk()
     private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk(relaxed = true)
