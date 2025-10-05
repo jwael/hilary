@@ -1,0 +1,131 @@
+package com.arval.blm.core.domain.service
+
+import com.arval.blm.core.domain.model.*
+import com.arval.blm.core.domain.spi.*
+import com.arval.blm.core.domain.utils.ReferenceIdFactory
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.*
+import java.time.Instant
+import java.time.LocalDate
+import java.util.*
+import kotlin.test.assertEquals
+
+class ImportCustomersServiceTest {
+
+    private lateinit var crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi
+    private lateinit var recordStepEventRepositorySpi: RecordStepEventRepositorySpi
+    private lateinit var clockProvider: ClockProvider
+    private lateinit var referenceIdFactory: ReferenceIdFactory
+    private lateinit var crmCustomerProviderSpi: CrmCustomerProviderSpi
+    private lateinit var batchRepositorySpi: BatchRepositoryForContactsSpi
+    private lateinit var importCustomersService: ImportCustomersService
+
+    @BeforeEach
+    fun setup() {
+        crmClsCustomerDataRepositorySpi = mock()
+        recordStepEventRepositorySpi = mock()
+        clockProvider = mock()
+        referenceIdFactory = mock()
+        crmCustomerProviderSpi = mock()
+        batchRepositorySpi = mock()
+
+        importCustomersService = ImportCustomersService(
+            crmClsCustomerDataRepositorySpi,
+            recordStepEventRepositorySpi,
+            clockProvider,
+            referenceIdFactory,
+            crmCustomerProviderSpi,
+            batchRepositorySpi
+        )
+
+        whenever(clockProvider.now).thenReturn(Instant.now())
+        whenever(referenceIdFactory.generate()).thenReturn(ReferenceId("ref-123"))
+    }
+
+    @Test
+    fun `apply should process valid customer payload successfully`() {
+        // given
+        val batch = LoaderBatch(id = 1L, reference = "BATCH_001")
+        val crmData = CrmData(country = "FRANCE", title = "Mr", firstName = "John", surname = "Doe")
+        val payload = CustomerPayload(
+            rowNumber = 1,
+            crmbata = crmData,
+            clsData = mapOf("EMPLOYEE_NUMBER" to "12345"),
+            errorMessage = null
+        )
+
+        val savedCrmClsData = mock<CrmClsCustomerData> {
+            on { isCrmUpdate() } doReturn false
+            on { isCreateRole() } doReturn false
+            on { isUpdateRole() } doReturn false
+        }
+
+        whenever(crmClsCustomerDataRepositorySpi.save(any())).thenReturn(savedCrmClsData)
+
+        // when
+        importCustomersService.apply(batch, listOf(payload))
+
+        // then
+        verify(crmClsCustomerDataRepositorySpi).save(any())
+        verify(recordStepEventRepositorySpi).save(
+            check {
+                assertEquals(batch.id, it.batchId)
+                assertEquals(payload.rowNumber, it.rowNumber)
+                assertEquals(StepName.BLM, it.stepName)
+                assertEquals(StepStatus.OK, it.stepStatus)
+            }
+        )
+    }
+
+    @Test
+    fun `apply should record KO step event when errorMessage is present`() {
+        // given
+        val batch = LoaderBatch(id = 99L, reference = "BATCH_ERR")
+        val payload = CustomerPayload(
+            rowNumber = 5,
+            crmbata = CrmData(firstName = "Error"),
+            clsData = emptyMap(),
+            errorMessage = "Simulated error"
+        )
+
+        // when
+        importCustomersService.apply(batch, listOf(payload))
+
+        // then
+        verify(recordStepEventRepositorySpi).save(
+            check {
+                assertEquals(batch.id, it.batchId)
+                assertEquals(payload.rowNumber, it.rowNumber)
+                assertEquals(StepStatus.KO, it.stepStatus)
+                assert(it.stepMessage!!.contains("Simulated error"))
+            }
+        )
+    }
+
+    @Test
+    fun `apply should handle exceptions gracefully and record KO step`() {
+        // given
+        val batch = LoaderBatch(id = 10L, reference = "BATCH_EX")
+        val payload = CustomerPayload(
+            rowNumber = 3,
+            crmbata = CrmData(firstName = "Jane", surname = "Doe"),
+            clsData = emptyMap(),
+            errorMessage = null
+        )
+
+        whenever(crmClsCustomerDataRepositorySpi.save(any())).thenThrow(RuntimeException("DB save failed"))
+
+        // when
+        importCustomersService.apply(batch, listOf(payload))
+
+        // then
+        verify(recordStepEventRepositorySpi).save(
+            check {
+                assertEquals(StepStatus.KO, it.stepStatus)
+                assert(it.stepMessage!!.contains("DB save failed"))
+            }
+        )
+    }
+}
