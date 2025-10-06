@@ -1,0 +1,45 @@
+@Test
+fun `should process customer creation when no special conditions`() {
+    // GIVEN: CustomerData sans conditions spéciales
+    val customerData = mockk<CrmClsCustomerData> {
+        every { isCreateRole() } returns false
+        every { isUpdateRole() } returns false
+        every { isCrmUpdate() } returns false
+        every { batchId } returns "BATCH123"
+        every { rowNumber } returns 1
+        every { reconciliationId } returns ReconciliationId(batchReference, rowReference)
+        every { crmData } returns CrmData(title = "Dr.")
+        every { clsData } returns emptyMap()
+        every { rowReference } returns rowReference
+        every { crmInsertedId } returns null
+    }
+    every { crmClsCustomerDataRepositorySpi.save(any()) } returns customerData
+
+    // WHEN
+    importCustomersService.apply(newBatch, listOf(validContacts.first()))
+
+    // THEN: Doit appeler createCrmCustomer
+    verify(exactly = 1) { crmCustomerProviderSpi.createCrmCustomer(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.updateCrmCustomer(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.createCrmRole(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.updateCrmRole(any()) }
+}
+
+@Test
+fun `should process customer creation when no special conditions`() {
+    // GIVEN: CustomerData sans conditions spéciales
+    val customerData = validContacts.first().toCrmClsCustomerData().apply {
+        // Forcer les conditions à false
+        // (suppose que tes méthodes isCreateRole() etc sont basées sur les données)
+    }
+    every { crmClsCustomerDataRepositorySpi.save(any()) } returns customerData
+
+    // WHEN
+    importCustomersService.apply(newBatch, listOf(validContacts.first()))
+
+    // THEN: Doit appeler createCrmCustomer
+    verify(exactly = 1) { crmCustomerProviderSpi.createCrmCustomer(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.updateCrmCustomer(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.createCrmRole(any()) }
+    verify(exactly = 0) { crmCustomerProviderSpi.updateCrmRole(any()) }
+}
