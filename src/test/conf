@@ -1,0 +1,98 @@
+1️⃣ Functional Overview — What the application does
+
+Your module, ImportCustomersService, is part of a customer import and synchronization system that integrates:
+	•	an internal BLM (Batch Loader Manager),
+	•	a CRM system (like Salesforce),
+	•	and external systems (CLS / ODS, etc.).
+
+👉 Main Goal:
+
+Take a batch file containing a list of customers or prospects,
+and for each row, create or update the corresponding customer records in the CRM and other systems.
+
+⸻
+
+⚙️ Functional Flow
+
+1. Read the batch
+
+Each batch (LoaderBatch) has:
+	•	a unique ID,
+	•	a country (GB, FR, etc.),
+	•	a file name,
+	•	a type (CONTACTS, CUSTOMERS, etc.),
+	•	the total number of contacts.
+
+The service loops through all rows (each one is a CustomerPayload).
+
+⸻
+
+2. Validate each customer
+
+Each row (CustomerPayload) contains:
+	•	crmData → CRM details (title, name, gender, country, etc.)
+	•	clsData → technical data
+	•	errorMessage → optional (if not null, the record is invalid)
+
+➡️ If a record has an errorMessage, it’s skipped and a step event is recorded with status KO (failure).
+
+⸻
+
+3. Generate technical IDs
+
+For valid rows:
+	•	A rowReference (unique per line) is created using ReferenceIdFactory.
+	•	A reconciliationId is built (to link batch and CRM records).
+	•	The CrmClsCustomerData model is created (the unified data model for CRM + CLS).
+
+⸻
+
+4. CRM interaction
+
+Depending on the customer’s state:
+	•	isCreateRole() → create a role in CRM
+	•	isUpdateRole() → update an existing role
+	•	isCrmUpdate() → update the customer in CRM
+	•	otherwise → create a new CRM customer
+
+Each action interacts with SPI ports (interfaces for external systems):
+	•	crmCustomerProviderSpi → CRM API (create/update)
+	•	crmClsCustomerDataRepositorySpi → internal DB
+	•	recordStepEventRepositorySpi → audit logs
+
+⸻
+
+5. Log step events
+
+After each operation, a RecordStepEvent is saved:
+	•	batchId
+	•	rowNumber
+	•	reconciliationId
+	•	stepName (e.g., SF_CREATE, SF_UPDATE)
+	•	stepStatus (OK or KO)
+	•	message
+	•	timestamp
+
+Example:
+
+✅ “Customer #4 successfully created in CRM”
+❌ “Customer #2 failed: invalid country code”
+
+⸻
+
+6. Update the batch
+
+When all rows are processed:
+	•	updateBatchStatus() is called
+	•	The batch is marked as IMPORTED
+	•	The endDate is updated to the current time
+
+⸻
+
+🔧 2️⃣ Technical Overview — How the application is built
+
+🏗️ Architecture: Hexagonal (Ports & Adapters)
+	•	Domain layer → entities like CustomerPayload, CrmClsCustomerData, LoaderBatch, RecordStepEvent
+	•	Application layer → ImportCustomersService (business logic)
+	•	Ports (SPI) → interfaces for external dependencies
+	•	Adapters → actual implementations (e.g., CRM REST client, DB repository)
