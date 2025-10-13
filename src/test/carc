@@ -1,0 +1,11 @@
+  FileOutputStream(tempFile).use { fos ->
+            fos.write(0xEF)  // BOM
+            fos.write(0xBB)
+            fos.write(0xBF)
+
+            OutputStreamWriter(BufferedOutputStream(fos), StandardCharsets.UTF_8).use { writer ->
+                StatefulBeanToCsvBuilder<CaixaCsvDto>(writer)
+                    .withQuotechar(CSVWriter.NO_QUOTE_CHARACTER)
+                    .withSeparator(';') // Excel-friendly
+                    .build()
+                    .write(dtos
