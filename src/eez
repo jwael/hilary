@@ -1,0 +1,109 @@
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import java.time.Instant
+
+class ImportCustomersServiceTest {
+
+    // SPI mockés
+    private val crmClsCustomerDataRepositorySpi = mockk<CrmClsCustomerDataRepositorySpi>(relaxed = true)
+    private val batchRepositorySpi = mockk<BatchRepositoryForCustomersSpi>(relaxed = true)
+    private val crmCustomerProviderSpi = mockk<CrmCustomerProviderSpi>(relaxed = true)
+    private val recordStepEventRepositorySpi = mockk<RecordStepEventRepositorySpi>(relaxed = true)
+    private val clockProvider = mockk<ClockProvider>(relaxed = true)
+
+    private lateinit var importCustomerService: ImportCustomersService
+
+    // Batch de test
+    private val batchReference = ReferenceId(value = "REF123456")
+    private val batch = LoaderBatch(
+        id = "BATCH001",
+        reference = batchReference,
+        fileName = "customers.csv",
+        triggeredBy = "U00001",
+        countryCode = CountryCode("FR"),
+        status = LoaderBatchStatus.RUNNING,
+        type = LoaderBatchType.B2C_CAIXA,
+        startDate = Instant.now(),
+        endDate = null,
+        totalContacts = 2
+    )
+
+    // Liste de CrmClsCustomerData pour le test
+    private val crmClsCustomerDataList = listOf(
+        CrmClsCustomerData(
+            batchId = batchReference.value,
+            reconciliationId = ReconciliationId(batchReference, rowReference = ReferenceId("ROW001")),
+            rowNumber = 1,
+            rowReference = ReferenceId("ROW001"),
+            crmData = CrmData(
+                firstName = "Pierre",
+                surname = "Dupont",
+                title = "M.",
+                contactRole = "Client",
+                mainCountry = "FR",
+                gender = "M",
+                email = "pierre.dupont@example.com"
+            ),
+            clsData = emptyMap(),
+            id = "CUST001",
+            crmInsertedId = null
+        ),
+        CrmClsCustomerData(
+            batchId = batchReference.value,
+            reconciliationId = ReconciliationId(batchReference, rowReference = ReferenceId("ROW002")),
+            rowNumber = 2,
+            rowReference = ReferenceId("ROW002"),
+            crmData = CrmData(
+                firstName = "Marie",
+                surname = "Durand",
+                title = "Mme",
+                contactRole = "Prospect",
+                mainCountry = "FR",
+                gender = "F",
+                email = "marie.durand@example.com"
+            ),
+            clsData = emptyMap(),
+            id = "CUST002",
+            crmInsertedId = null
+        )
+    )
+
+    @BeforeEach
+    fun setup() {
+        importCustomerService = ImportCustomersService(
+            referenceIdFactory = mockk(relaxed = true),
+            crmCLsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+            batchRepositorySpi = batchRepositorySpi,
+            crmcustomerProviderSpi = crmCustomerProviderSpi,
+            recordStepEventRepositorySpi = recordStepEventRepositorySpi,
+            clockProvider = clockProvider
+        )
+    }
+
+    @Test
+    fun `should process all customers correctly`() {
+        // GIVEN : transformation CrmClsCustomerData -> CustomerPayload
+        val customerPayloads = crmClsCustomerDataList.map { crmCustomer ->
+            CustomerPayload(
+                rowNumber = crmCustomer.rowNumber,
+                crmdata = crmCustomer.crmData,
+                clsData = crmCustomer.clsData,
+                errorMessage = null
+            )
+        }
+
+        // WHEN
+        importCustomerService.apply(
+            batch = batch,
+            personalAccounts = customerPayloads
+        )
+
+        // THEN : vérifie que tous les SPI ont été appelés correctement
+        verify(exactly = 2) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = 2) { crmCustomerProviderSpi.createCrmCustomer(any()) }
+        verify(exactly = 1) { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.IMPORTED }) }
+    }
+}
