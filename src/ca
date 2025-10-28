@@ -1,0 +1,117 @@
+class ImportCustomersServiceTest {
+
+    private val referenceIdFactory: ReferenceIdFactory = mockk()
+    private val crmClsCustomerDataRepositorySpi: CrmClsCustomerDataRepositorySpi = mockk(relaxed = true)
+    private val batchRepositorySpi: BatchRepositoryForContactsSpi = mockk(relaxed = true)
+    private val crmCustomerProviderSpi: CrmCustomerProviderSpi = mockk(relaxed = true)
+    private val recordStepEventRepositorySpi: RecordStepEventRepositorySpi = mockk(relaxed = true)
+    private val clockProvider: ClockProvider = mockk()
+
+    private lateinit var importCustomerService: ImportCustomersService
+
+    private val batchReference = ReferenceId(value = "REF123456")
+
+    @BeforeEach
+    fun setup() {
+        every { clockProvider.now() } returns Instant.now()
+
+        importCustomerService = ImportCustomersService(
+            referenceIdFactory = referenceIdFactory,
+            crmCLsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+            batchRepositorySpi = batchRepositorySpi,
+            crmCustomerProviderSpi = crmCustomerProviderSpi,
+            recordStepEventRepositorySpi = recordStepEventRepositorySpi,
+            clockProvider = clockProvider
+        )
+    }
+
+    @Test
+    fun `should process all customers with real CrmData`() {
+        // GIVEN
+        val batch = LoaderBatch(
+            id = "BATCH001",
+            reference = batchReference,
+            fileName = "customers.csv",
+            triggeredBy = "U00001",
+            countryCode = CountryCode("FR"),
+            status = LoaderBatchStatus.RUNNING,
+            type = LoaderBatchType.B2C_CAIXA,
+            startDate = Instant.now(),
+            endDate = null,
+            totalContacts = 2
+        )
+
+        val crmClsCustomerDataList = listOf(
+            CrmClsCustomerData(
+                batchId = batchReference.value,
+                reconciliationId = ReconciliationId(
+                    batchReference = ReferenceId("BATCH90001"),
+                    rowReference = ReferenceId("ROW9901108")
+                ),
+                rowNumber = 1,
+                rowReference = ReferenceId("ROW001"),
+                crmData = CrmData(
+                    firstName = "Jean",
+                    surname = "Dupont",
+                    title = "Dr.",
+                    salutation = "Dr.",
+                    gender = "M",
+                    contactRole = "Driver",
+                    mainCountry = "FRANCE",
+                    country = "FRANCE",
+                    prefLanguageComm = "FR",
+                    postalcode = "75001",
+                    state = "Ile-de-France",
+                    phone = "0102030405",
+                    mobilePhone = "0607080910",
+                    email = "jean.dupont@example.com",
+                    businessType = "B2C",
+                    partnerNetwork = "Partner1",
+                    jobTitle = "Manager"
+                ),
+                cLsData = emptyMap(),
+                id = "batch11001",
+                crmInsertedId = null
+            ),
+            CrmClsCustomerData(
+                batchId = batchReference.value,
+                reconciliationId = ReconciliationId(
+                    batchReference = ReferenceId("BATCH90001"),
+                    rowReference = ReferenceId("ROW9901109")
+                ),
+                rowNumber = 2,
+                rowReference = ReferenceId("ROW002"),
+                crmData = CrmData(
+                    firstName = "Marie",
+                    surname = "Martin",
+                    title = "Mme",
+                    salutation = "Mme",
+                    gender = "F",
+                    contactRole = "Driver",
+                    mainCountry = "FRANCE",
+                    country = "FRANCE",
+                    prefLanguageComm = "FR",
+                    postalcode = "75002",
+                    state = "Ile-de-France",
+                    phone = "0102030412",
+                    mobilePhone = "0607080911",
+                    email = "marie.martin@example.com",
+                    businessType = "B2C",
+                    partnerNetwork = "Partner2",
+                    jobTitle = "Consultant"
+                ),
+                cLsData = emptyMap(),
+                id = "batch11002",
+                crmInsertedId = null
+            )
+        )
+
+        // WHEN
+        importCustomerService.apply(batch, crmClsCustomerDataList)
+
+        // THEN
+        verify(exactly = 2) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = 2) { crmCustomerProviderSpi.createCrmCustomer(any(), CountryCode("FR")) }
+        verify(exactly = 1) { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.IMPORTED }) }
+    }
+}
