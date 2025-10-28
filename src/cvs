@@ -1,0 +1,77 @@
+@Nested
+inner class CustomerProcessingTests {
+
+    @ParameterizedTest
+    @CsvSource(
+        "Jean,Dupont,Masculin,Driver,M.",
+        "Marie,Curie,Féminin,Manager,Mme",
+        "Louis,Martin,Masculin,Supervisor,M."
+    )
+    fun `apply should process multiple customers correctly`(
+        firstName: String,
+        lastName: String,
+        sex: String,
+        contactRole: String,
+        title: String
+    ) {
+        val batchReference = ReferenceId("REF123456")
+        val batch = LoaderBatch(
+            id = "BATCH001",
+            reference = batchReference,
+            fileName = "customers.csv",
+            triggeredBy = "U00001",
+            countryCode = CountryCode("FR"),
+            status = LoaderBatchStatus.RUNNING,
+            type = LoaderBatchType.B2C_CAIXA,
+            startDate = Instant.now(),
+            endDate = null,
+            totalContacts = 1
+        )
+
+        val crmClsCustomerData = CrmClsCustomerData(
+            id = "CUST-${firstName}",
+            batchId = batchReference.value,
+            reconciliationId = ReconciliationId(
+                batchReference = ReferenceId("BATCH90001"),
+                rowReference = ReferenceId("ROW001")
+            ),
+            rowNumber = 1,
+            rowReference = ReferenceId("ROW001"),
+            crmData = CrmData(
+                firstName = firstName,
+                lastName = lastName,
+                sex = sex,
+                contactRole = contactRole,
+                homeCountry = "FRANCE",
+                workCountry = "FRANCE",
+                homeProvince = "Ile-de-France",
+                workProvince = "Ile-de-France",
+                salutation = title,
+                title = title,
+                languageCode = "FR"
+            ),
+            clsData = emptyMap(),
+            crmInsertedId = null
+        )
+
+        // Transformer en CustomerPayload
+        val payload = CustomerPayload(
+            id = crmClsCustomerData.id,
+            batchId = crmClsCustomerData.batchId,
+            reconciliationId = crmClsCustomerData.reconciliationId,
+            rowNumber = crmClsCustomerData.rowNumber,
+            rowReference = crmClsCustomerData.rowReference,
+            crmData = crmClsCustomerData.crmData,
+            clsData = crmClsCustomerData.clsData,
+            crmInsertedId = crmClsCustomerData.crmInsertedId
+        )
+
+        // WHEN
+        importCustomerService.apply(batch, listOf(payload))
+
+        // THEN
+        verify(exactly = 1) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = 1) { crmCustomerProviderSpi.createCrmCustomer(any(), "FR") }
+        verify(exactly = 1) { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.IMPORTED }) }
+    }
+}
