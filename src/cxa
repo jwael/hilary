@@ -1,0 +1,42 @@
+@ParameterizedTest
+@CsvSource(
+    "Pierre, Dupont, M., Client, FR",
+    "Marie, Durand, Mme, Prospect, FR",
+    "Johann, Schmidt, Herr, Client, DE"
+)
+fun `it should process all customers correctly`(
+    firstName: String,
+    surname: String,
+    title: String,
+    contactRole: String,
+    country: String
+) {
+    val crmClsCustomerDataList = listOf(
+        CrmClsCustomerData(
+            batchId = batch.reference.value,
+            reconciliationId = ReconciliationId(batch.reference, rowReference = ReferenceId("ROW001")),
+            rowNumber = 1,
+            rowReference = ReferenceId("ROW001"),
+            crmData = CrmData(
+                firstName = firstName,
+                surname = surname,
+                title = title,
+                contactRole = contactRole,
+                mainCountry = country
+            ),
+            clsData = emptyMap(),
+            id = "CUST001",
+            crmInsertedId = null
+        )
+    )
+
+    val customerPayloads = crmClsCustomerDataList.map {
+        CustomerPayload(it.rowNumber, it.crmData, it.clsData)
+    }
+
+    importCustomerService.apply(batch, personalAccounts = customerPayloads)
+
+    verify { crmClsCustomerDataRepositorySpi.save(any()) }
+    verify { crmCustomerProviderSpi.createCrmCustomer(any()) }
+    verify { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.IMPORTED }) }
+}
