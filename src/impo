@@ -1,0 +1,101 @@
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.verify
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import java.time.Instant
+
+class ImportCustomerServiceTest {
+
+    // Dépendances mockées
+    private val referenceIdFactory = mockk<ReferenceIdFactory>()
+    private val crmClsCustomerDataRepositorySpi = mockk<CrmClsCustomerDataRepositorySpi>()
+    private val batchRepositorySpi = mockk<BatchRepositoryForCustomersSpi>()
+    private val crmCustomerProviderSpi = mockk<CrmCustomerProviderSpi>()
+    private val clsCustomerProviderSpi = mockk<ClsCustomerProviderSpi>()
+    private val odsProviderSpi = mockk<OdsProviderSpi>(relaxed = true)
+    private val countryPrefixSpi = mockk<CountryPrefixSpi>(relaxed = true)
+    private val recordStepEventRepositorySpi = mockk<RecordStepEventRepositorySpi>(relaxed = true)
+    private val contactsMetricRegistrySpi = mockk<ContactsMetricRegistrySpi>(relaxed = true)
+
+    private lateinit var importCustomerService: ImportCustomerService
+
+    @BeforeEach
+    fun setup() {
+        importCustomerService = ImportCustomerService(
+            referenceIdFactory = referenceIdFactory,
+            crmClsCustomerDataRepositorySpi = crmClsCustomerDataRepositorySpi,
+            batchRepositorySpi = batchRepositorySpi,
+            crmCustomerProviderSpi = crmCustomerProviderSpi,
+            clsCustomerProviderSpi = clsCustomerProviderSpi,
+            odsProviderSpi = odsProviderSpi,
+            countryPrefixSpi = countryPrefixSpi,
+            recordStepEventRepositorySpi = recordStepEventRepositorySpi,
+            contactsMetricRegistrySpi = contactsMetricRegistrySpi
+        )
+    }
+
+    @Test
+    fun `should process all customers for a batch`() {
+        // GIVEN
+        val batchReference = ReferenceId(value = "REF123456")
+        val batch = LoaderBatch(
+            id = "BATCH001",
+            reference = batchReference,
+            fileName = "customers.csv",
+            triggeredBy = "U00001",
+            countryCode = CountryCode("FR"),
+            status = LoaderBatchStatus.RUNNING,
+            type = LoaderBatchType.CUSTOMERS,
+            startDate = Instant.now(),
+            endDate = null,
+            totalContacts = 2
+        )
+
+        val crmClsCustomerDataList = listOf(
+            CrmClsCustomerData(
+                batchId = batchReference.value,
+                reconciliationId = ReconciliationId(batchReference, ReferenceId("ROW001")),
+                rowNumber = 1,
+                rowReference = ReferenceId("ROW001"),
+                crmData = CrmData(
+                    companyCode = "FR001",
+                    firstName = "Jean",
+                    lastName = "Dupont",
+                    languageCode = "FR"
+                ),
+                clsData = emptyMap()
+            ),
+            CrmClsCustomerData(
+                batchId = batchReference.value,
+                reconciliationId = ReconciliationId(batchReference, ReferenceId("ROW002")),
+                rowNumber = 2,
+                rowReference = ReferenceId("ROW002"),
+                crmData = CrmData(
+                    companyCode = "FR002",
+                    firstName = "Marie",
+                    lastName = "Durand",
+                    languageCode = "FR"
+                ),
+                clsData = emptyMap()
+            )
+        )
+
+        // Mocks des appels externes
+        every { crmClsCustomerDataRepositorySpi.save(any()) } answers { firstArg() }
+        every { batchRepositorySpi.save(any()) } answers { firstArg() }
+        every { crmCustomerProviderSpi.createCrmCustomer(any(), any()) } just Runs
+        every { clsCustomerProviderSpi.sendCustomerToCls(any(), any()) } just Runs
+        every { countryPrefixSpi.getPrefixByCountryCode(any(), any()) } returns "FR"
+
+        // WHEN
+        importCustomerService.apply(batch, crmClsCustomerDataList)
+
+        // THEN: vérifie les appels aux SPI
+        verify(exactly = 2) { crmClsCustomerDataRepositorySpi.save(any()) }
+        verify(exactly = 2) { crmCustomerProviderSpi.createCrmCustomer(any(), "FR") }
+        verify(exactly = 2) { clsCustomerProviderSpi.sendCustomerToCls(any(), "FR") }
+        verify { batchRepositorySpi.save(match { it.status == LoaderBatchStatus.IMPORTED }) }
+    }
+}
